@@ -19,5 +19,6 @@ cpu-check: build/test-contract build/check-fixtures
 	./build/test-contract
 	./build/check-fixtures
 	python3 tests/test_compact.py
+	python3 tests/test_stage64.py
 clean:
 	rm -rf build

@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "date": "2026-11-19",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -15,7 +15,7 @@
   "full_Pearl_proof_verified": false,
   "SRBMiner_compatibility_claimed": false,
   "power_or_hashrate_improvement_measured": false,
-  "source_sha256": "33af354cc9981186d5ea4afebd1202bb63297bbcf2f6e41069c8a27f48c39ef7",
+  "source_sha256": "91e9721506867dda5872267c465b0ee2c33596f96b54d788641e5d163816c352",
   "binary_sha256": "1275bf11b5f2b112a5ca67c6867219832e8ca1e867682253707b5459738b12f2",
   "compiled_resources": [
     {
@@ -105,7 +105,28 @@
     "GPU_correctness_tested": false,
     "GPU_performance_tested": false,
     "CPU_model_passed": true,
-    "baseline": "unchanged own 256-thread implementation; not SRBMiner"
+    "baseline": "unchanged own 256-thread implementation; not SRBMiner",
+    "test_outcome": "User supplied 4090 run: correct, speed ratio 0.460124; candidate rejected for tested shape. Not a SRBMiner comparison."
   },
-  "compiled_resources_scope": "compiled_resources above describes original 0.1.1 baselines; compact_variant describes 0.2.0"
+  "compiled_resources_scope": "compiled_resources above describes original 0.1.1 baselines; compact_variant describes 0.2.0",
+  "stage64_variant": {
+    "threads": 256,
+    "tile": [
+      128,
+      320,
+      64
+    ],
+    "MMA_K": 32,
+    "transcript": "unchanged shared slots, checkpoint after each 32 MMA step",
+    "registers_sm86_sm89": 224,
+    "shared_bytes_proof16": 81920,
+    "shared_bytes_proof8": 92160,
+    "stack_bytes": 0,
+    "spill_bytes": 0,
+    "GPU_correctness_tested": false,
+    "GPU_performance_tested": false,
+    "CPU_model_passed": true,
+    "compiler": "13.0.88",
+    "baseline": "own 256-thread stage32 kernel, not SRBMiner"
+  }
 }

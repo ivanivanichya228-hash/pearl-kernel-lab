@@ -47,11 +47,11 @@ def main():
     exe=ROOT/'build/pearl-bench'
     if not exe.is_file():raise ValueError('Build the harness first')
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
-    if '--candidate 128|512' not in help_result.stdout:
+    if '--stage-k 32|64' not in help_result.stdout:
         raise ValueError('Stale harness; rebuild the compact revision before any pause')
     env=os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
-             '--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
+             '--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
     if args.allow_concurrent_miner:command.append('--allow-concurrent-miner')
     print(json.dumps({'phase':'guard','gpu_uuid':uuid,'model':name,'expected_PL_W':str(limit),
                       'GPU_settings_changed':False}),flush=True)

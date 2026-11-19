@@ -81,11 +81,13 @@ struct Power {
   ~Power(){finish();if(initialized&&shutdown)shutdown();if(lib)dlclose(lib);}
 };
 void resources(int pn) {
-  for(int threads:{128,256,512}){
-    cudaFuncAttributes a{};int blocks=0;check(resource_info(threads,pn,false,&a,&blocks));
-    std::cout<<"{\"phase\":\"resources\",\"threads\":"<<threads<<",\"proof_n\":"<<pn
+  for(int variant:{128,256,512,64}){
+    const int threads = variant == 64 ? 256 : variant;
+    const int stage_k = variant == 64 ? 64 : 32;
+    cudaFuncAttributes a{};int blocks=0;check(resource_info(threads,pn,false,&a,&blocks,stage_k));
+    std::cout<<"{\"phase\":\"resources\",\"threads\":"<<threads<<",\"stage_k\":"<<stage_k<<",\"proof_n\":"<<pn
       <<",\"registers\":"<<a.numRegs<<",\"local_bytes_per_thread\":"<<a.localSizeBytes
-      <<",\"shared_bytes_per_block\":"<<shared_bytes(pn)<<",\"active_blocks_per_SM\":"<<blocks<<"}\n";
+      <<",\"shared_bytes_per_block\":"<<(stage_k == 64 ? stage64_shared_bytes(pn) : (threads == 128 ? 18432 : shared_bytes(pn)))<<",\"active_blocks_per_SM\":"<<blocks<<"}\n";
   }
 }
 void verify(const std::string&root) {
@@ -93,23 +95,25 @@ void verify(const std::string&root) {
     auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");
     Buffer<int8_t>a(f.a.size()),b(f.bt.size());Buffer<uint32_t>out(f.golden.transcript.size());
     Buffer<int32_t>matrix(f.golden.matrix.size());a.put(f.a);b.put(f.bt);
-    for(int threads:{128,256,512}){
-      check(launch(a.p,b.p,out.p,matrix.p,f.p,threads,nullptr));check(cudaDeviceSynchronize());
+    for(int variant:{128,256,512,64}){
+    const int threads = variant == 64 ? 256 : variant;
+    const int stage_k = variant == 64 ? 64 : 32;
+      check(launch(a.p,b.p,out.p,matrix.p,f.p,threads,nullptr,stage_k));check(cudaDeviceSynchronize());
       if(out.get()!=f.golden.transcript||matrix.get()!=f.golden.matrix)
         throw std::runtime_error("GPU correctness mismatch fixture="+std::to_string(i)+" threads="+std::to_string(threads));
     }
   }
-  std::cout<<"{\"phase\":\"correctness\",\"passed\":true,\"fixtures\":6,\"variants_per_fixture\":3,\"full_matrix_and_transcript\":true}\n";
+  std::cout<<"{\"phase\":\"correctness\",\"passed\":true,\"fixtures\":6,\"variants_per_fixture\":4,\"full_matrix_and_transcript\":true}\n";
 }
 double median(std::vector<double>x){std::sort(x.begin(),x.end());return x.size()%2?x[x.size()/2]:(x[x.size()/2-1]+x[x.size()/2])*0.5;}
-double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,double duration,const char*pci) {
+double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,double duration,const char*pci,int stage_k = 32) {
   cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
   cudaEvent_t begin,end;check(cudaEventCreate(&begin));check(cudaEventCreate(&end));
-  for(int i=0;i<3;++i)check(launch(a,b,out,nullptr,p,threads,stream));
+  for(int i=0;i<3;++i)check(launch(a,b,out,nullptr,p,threads,stream,stage_k));
   check(cudaStreamSynchronize(stream));
   constexpr int batch=16;
   check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeGlobal));
-  for(int i=0;i<batch;++i)check(launch(a,b,out,nullptr,p,threads,stream));
+  for(int i=0;i<batch;++i)check(launch(a,b,out,nullptr,p,threads,stream,stage_k));
   cudaGraph_t graph;check(cudaStreamEndCapture(stream,&graph));
   cudaGraphExec_t exec;check(cudaGraphInstantiate(&exec,graph,nullptr,nullptr,0));
   Power power(pci);power.start();std::vector<double>times;
@@ -119,7 +123,7 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
     check(cudaEventSynchronize(end));float ms=0;check(cudaEventElapsedTime(&ms,begin,end));times.push_back(ms/batch);
   } while(std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count()<duration);
   auto telemetry=power.json();double ms=median(times);
-  std::cout<<"{\"phase\":\"benchmark\",\"threads\":"<<threads<<",\"median_ms\":"<<ms
+  std::cout<<"{\"phase\":\"benchmark\",\"threads\":"<<threads<<",\"stage_k\":"<<stage_k<<",\"median_ms\":"<<ms
     <<",\"batches\":"<<times.size()<<",\"graph_batch\":"<<batch
     <<",\"matrix_TOPS\":"<<(2.0*p.m*p.n*p.k/(ms*1e9))<<",\"telemetry\":"<<telemetry<<"}\n"<<std::flush;
   cudaGraphExecDestroy(exec);cudaGraphDestroy(graph);cudaEventDestroy(begin);cudaEventDestroy(end);cudaStreamDestroy(stream);
@@ -128,14 +132,14 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false;int device=0,candidate=128;std::string mode="check",fixtures="tests/fixtures";
+    bool allow=false,concurrent=false;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures";
     Shape shape{2048,6144,4096,128,16};double duration=2;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
         std::cout<<"pearl-bench --run-gpu [--mode check|bench|info] [--device N]\n"
           <<"  [--fixtures DIR] [--m M --n N --k K --rank R --proof-n 8|16]\n"
-          <<"  [--duration 1..10] [--candidate 128|512] [--allow-concurrent-miner]\n"
+          <<"  [--duration 1..10] [--candidate 128|256|512 --stage-k 32|64] [--allow-concurrent-miner]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
       }
@@ -144,6 +148,7 @@ int main(int argc,char**argv){
       if(i+1==argc)throw std::runtime_error("missing argument for "+s);
       std::string v=argv[++i];
       if(s=="--mode")mode=v;else if(s=="--device")device=std::stoi(v);
+      else if(s=="--stage-k")stage_k=std::stoi(v);
       else if(s=="--candidate")candidate=std::stoi(v);
       else if(s=="--fixtures")fixtures=v;else if(s=="--duration")duration=std::stod(v);
       else if(s=="--m")shape.m=std::stoi(v);else if(s=="--n")shape.n=std::stoi(v);
@@ -151,7 +156,7 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info")||(candidate!=128&&candidate!=512)||device<0||device>31||!std::isfinite(duration)||duration<1||duration>10)
+    if((mode!="check"&&mode!="bench"&&mode!="info")||(candidate!=128&&candidate!=256&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256)||device<0||device>31||!std::isfinite(duration)||duration<1||duration>10)
       throw std::runtime_error("invalid options");
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
@@ -168,16 +173,16 @@ int main(int argc,char**argv){
     std::mt19937 rng(20261119);std::vector<int8_t>a(std::size_t(shape.m)*shape.k),b(std::size_t(shape.n)*shape.k);
     for(auto&x:a)x=int8_t(int(rng()%129)-64);for(auto&x:b)x=int8_t(int(rng()%129)-64);
     Buffer<int8_t>da(a.size()),db(b.size());Buffer<uint32_t>oa(shape.groups()*16),ob(shape.groups()*16);
-    da.put(a);db.put(b);check(launch(da.p,db.p,oa.p,nullptr,shape,256,nullptr));check(launch(da.p,db.p,ob.p,nullptr,shape,candidate,nullptr));
+    da.put(a);db.put(b);check(launch(da.p,db.p,oa.p,nullptr,shape,256,nullptr));check(launch(da.p,db.p,ob.p,nullptr,shape,candidate,nullptr,stage_k));
     check(cudaDeviceSynchronize());if(oa.get()!=ob.get())throw std::runtime_error("benchmark-shape variant mismatch");
     std::cout<<"{\"phase\":\"benchmark_shape\",\"m\":"<<shape.m<<",\"n\":"<<shape.n<<",\"k\":"<<shape.k
       <<",\"rank\":"<<shape.rank<<",\"proof_n\":"<<shape.proof_n<<"}\n";
     double a1=measure(da.p,db.p,oa.p,shape,256,duration,pci);
-    double b1=measure(da.p,db.p,ob.p,shape,candidate,duration,pci);
-    double b2=measure(da.p,db.p,ob.p,shape,candidate,duration,pci);
+    double b1=measure(da.p,db.p,ob.p,shape,candidate,duration,pci,stage_k);
+    double b2=measure(da.p,db.p,ob.p,shape,candidate,duration,pci,stage_k);
     double a2=measure(da.p,db.p,oa.p,shape,256,duration,pci);
     std::cout<<"{\"phase\":\"summary\",\"arithmetic_correctness_passed\":true,\"candidate_over_256_speed_ratio\":"
-      <<std::sqrt(a1*a2/(b1*b2))<<",\"candidate_threads\":"<<candidate<<",\"baseline\":\"our_256_thread_kernel_not_SRBMiner\",\"Pearl_hashrate_measured\":false}\n";
+      <<std::sqrt(a1*a2/(b1*b2))<<",\"candidate_threads\":"<<candidate<<",\"candidate_stage_k\":"<<stage_k<<",\"baseline\":\"our_256_thread_kernel_not_SRBMiner\",\"Pearl_hashrate_measured\":false}\n";
     return 0;
   }catch(const std::exception&e){std::cerr<<"ERROR: "<<e.what()<<"\n";return 1;}
 }

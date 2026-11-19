@@ -1,3 +1,5 @@
+> Revision 0.3.0: [STAGE64-4090.md](STAGE64-4090.md) supersedes previous experiment instructions. New candidate is 256 threads / stage-k 64; rebuild required. No measured speedup yet.
+
 # Compact revision 0.2.0
 
 New 128-thread 64x128 candidate with register-resident transcripts. GPU validation pending.
