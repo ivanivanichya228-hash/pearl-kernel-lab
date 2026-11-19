@@ -1,3 +1,9 @@
+# Compact revision 0.2.0
+
+New 128-thread 64x128 candidate with register-resident transcripts. GPU validation pending.
+Build from source; bundled `bin/` executable is legacy and must not be used for this revision.
+Read [NEXT-4090.md](NEXT-4090.md) before any GPU work. Existing mining must be restored using the verified local watchdog procedure.
+
 # Pearl INT8 kernel experiment 0.1.1
 
 Написано новое CUDA-ядро и собран отдельный стенд для первой проверки на RTX 3060 / RTX 4090. Рабочие майнеры и панель не изменялись.

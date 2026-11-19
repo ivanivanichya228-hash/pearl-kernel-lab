@@ -1,5 +1,5 @@
 {
-  "version": "0.1.1",
+  "version": "0.2.0",
   "date": "2026-11-19",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -15,7 +15,7 @@
   "full_Pearl_proof_verified": false,
   "SRBMiner_compatibility_claimed": false,
   "power_or_hashrate_improvement_measured": false,
-  "source_sha256": "f6a808ad6a8e2cb71c757ea130cfb170835e84a68e6922d7e0cb476c9f8de19d",
+  "source_sha256": "33af354cc9981186d5ea4afebd1202bb63297bbcf2f6e41069c8a27f48c39ef7",
   "binary_sha256": "1275bf11b5f2b112a5ca67c6867219832e8ca1e867682253707b5459738b12f2",
   "compiled_resources": [
     {
@@ -82,10 +82,30 @@
   "GPU_execution_gate": "--run-gpu; refuses visible SRBMiner process unless --allow-concurrent-miner",
   "baseline": "our own 256-thread implementation, not SRBMiner",
   "scope": "preformed signed INT8 prefix GEMM and rolling XOR transcript, no noise generation, commitment, BLAKE3, certificate or pool integration",
-  "CUDA_binary_build_version": "0.1.0",
+  "CUDA_binary_build_version": "legacy 0.1.0; bundled bin is not the new kernel; rebuild required",
   "GPU_test_target": "RTX 4090 / Linux Mint only",
   "read_only_PL_guard": "tools/test_4090_mint.py; explicit expected PL; UUID isolation; stop on PL/read failure",
   "PL_guard_CPU_tests_passed": 4,
   "miner_restore_implemented_in_harness": false,
-  "miner_restore_requirement": "Codex must prepare original-launch recovery and independent watchdog before any pause; see CODEX_TASK.md"
+  "miner_restore_requirement": "Codex must prepare original-launch recovery and independent watchdog before any pause; see CODEX_TASK.md",
+  "compact_variant": {
+    "threads": 128,
+    "tile": [
+      64,
+      128,
+      32
+    ],
+    "transcript": "lane registers",
+    "dynamic_shared_bytes": 18432,
+    "compiler": "13.0.88",
+    "SM86_SM89_registers_proof16": 116,
+    "SM86_SM89_registers_proof8": 119,
+    "stack_bytes": 0,
+    "spill_bytes": 0,
+    "GPU_correctness_tested": false,
+    "GPU_performance_tested": false,
+    "CPU_model_passed": true,
+    "baseline": "unchanged own 256-thread implementation; not SRBMiner"
+  },
+  "compiled_resources_scope": "compiled_resources above describes original 0.1.1 baselines; compact_variant describes 0.2.0"
 }

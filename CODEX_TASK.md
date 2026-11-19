@@ -1,3 +1,5 @@
+> Revision 0.2.0: follow [NEXT-4090.md](NEXT-4090.md). It supersedes the old comparison and binary instructions below. Preserve the validated local recovery and paused-process guards.
+
 # Первый тест: только RTX 4090 на Linux Mint
 
 Клонируй этот репозиторий в отдельный каталог, вне mining-panel и установленного SRBMiner. Прочитай README.md и STATUS.json. Цель — проверить новое математическое CUDA-ядро и сравнить наши версии на 256/512 потоков. Не объявляй matrix_TOPS хешрейтом Pearl и не устанавливай экспериментальное ядро в рабочий майнер.

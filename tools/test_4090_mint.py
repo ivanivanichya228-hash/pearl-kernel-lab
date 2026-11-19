@@ -45,8 +45,10 @@ def main():
     if limit!=args.expected_power_limit_w:
         raise ValueError('Current PL differs from the expected PL; no test started')
     exe=ROOT/'build/pearl-bench'
-    if not exe.is_file():exe=ROOT/'bin/pearl-bench-linux-x86_64'
     if not exe.is_file():raise ValueError('Build the harness first')
+    help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
+    if '--candidate 128|512' not in help_result.stdout:
+        raise ValueError('Stale harness; rebuild the compact revision before any pause')
     env=os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
              '--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]

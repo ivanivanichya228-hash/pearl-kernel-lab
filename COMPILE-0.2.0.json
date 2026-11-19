@@ -1,0 +1,246 @@
+{
+  "compiler": "13.0.88",
+  "GPU_executed": false,
+  "entries": [
+    {
+      "arch": "sm_86",
+      "threads": 512,
+      "proof_n": 16,
+      "debug": false,
+      "registers": 126,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 512,
+      "proof_n": 16,
+      "debug": true,
+      "registers": 126,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 512,
+      "proof_n": 8,
+      "debug": false,
+      "registers": 128,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 512,
+      "proof_n": 8,
+      "debug": true,
+      "registers": 128,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 256,
+      "proof_n": 16,
+      "debug": false,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 256,
+      "proof_n": 16,
+      "debug": true,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 256,
+      "proof_n": 8,
+      "debug": false,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 256,
+      "proof_n": 8,
+      "debug": true,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 128,
+      "proof_n": 16,
+      "debug": false,
+      "registers": 116,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 128,
+      "proof_n": 16,
+      "debug": true,
+      "registers": 116,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 128,
+      "proof_n": 8,
+      "debug": false,
+      "registers": 119,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_86",
+      "threads": 128,
+      "proof_n": 8,
+      "debug": true,
+      "registers": 119,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 512,
+      "proof_n": 16,
+      "debug": false,
+      "registers": 126,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 512,
+      "proof_n": 16,
+      "debug": true,
+      "registers": 126,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 512,
+      "proof_n": 8,
+      "debug": false,
+      "registers": 128,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 512,
+      "proof_n": 8,
+      "debug": true,
+      "registers": 128,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 256,
+      "proof_n": 16,
+      "debug": false,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 256,
+      "proof_n": 16,
+      "debug": true,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 256,
+      "proof_n": 8,
+      "debug": false,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 256,
+      "proof_n": 8,
+      "debug": true,
+      "registers": 238,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 128,
+      "proof_n": 16,
+      "debug": false,
+      "registers": 116,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 128,
+      "proof_n": 16,
+      "debug": true,
+      "registers": 116,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 128,
+      "proof_n": 8,
+      "debug": false,
+      "registers": 119,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "arch": "sm_89",
+      "threads": 128,
+      "proof_n": 8,
+      "debug": true,
+      "registers": 119,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    }
+  ]
+}

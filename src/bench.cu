@@ -81,7 +81,7 @@ struct Power {
   ~Power(){finish();if(initialized&&shutdown)shutdown();if(lib)dlclose(lib);}
 };
 void resources(int pn) {
-  for(int threads:{256,512}){
+  for(int threads:{128,256,512}){
     cudaFuncAttributes a{};int blocks=0;check(resource_info(threads,pn,false,&a,&blocks));
     std::cout<<"{\"phase\":\"resources\",\"threads\":"<<threads<<",\"proof_n\":"<<pn
       <<",\"registers\":"<<a.numRegs<<",\"local_bytes_per_thread\":"<<a.localSizeBytes
@@ -93,13 +93,13 @@ void verify(const std::string&root) {
     auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");
     Buffer<int8_t>a(f.a.size()),b(f.bt.size());Buffer<uint32_t>out(f.golden.transcript.size());
     Buffer<int32_t>matrix(f.golden.matrix.size());a.put(f.a);b.put(f.bt);
-    for(int threads:{256,512}){
+    for(int threads:{128,256,512}){
       check(launch(a.p,b.p,out.p,matrix.p,f.p,threads,nullptr));check(cudaDeviceSynchronize());
       if(out.get()!=f.golden.transcript||matrix.get()!=f.golden.matrix)
         throw std::runtime_error("GPU correctness mismatch fixture="+std::to_string(i)+" threads="+std::to_string(threads));
     }
   }
-  std::cout<<"{\"phase\":\"correctness\",\"passed\":true,\"fixtures\":6,\"variants_per_fixture\":2,\"full_matrix_and_transcript\":true}\n";
+  std::cout<<"{\"phase\":\"correctness\",\"passed\":true,\"fixtures\":6,\"variants_per_fixture\":3,\"full_matrix_and_transcript\":true}\n";
 }
 double median(std::vector<double>x){std::sort(x.begin(),x.end());return x.size()%2?x[x.size()/2]:(x[x.size()/2-1]+x[x.size()/2])*0.5;}
 double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,double duration,const char*pci) {
@@ -128,14 +128,14 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false;int device=0;std::string mode="check",fixtures="tests/fixtures";
+    bool allow=false,concurrent=false;int device=0,candidate=128;std::string mode="check",fixtures="tests/fixtures";
     Shape shape{2048,6144,4096,128,16};double duration=2;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
         std::cout<<"pearl-bench --run-gpu [--mode check|bench|info] [--device N]\n"
           <<"  [--fixtures DIR] [--m M --n N --k K --rank R --proof-n 8|16]\n"
-          <<"  [--duration 1..10] [--allow-concurrent-miner]\n"
+          <<"  [--duration 1..10] [--candidate 128|512] [--allow-concurrent-miner]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
       }
@@ -144,13 +144,14 @@ int main(int argc,char**argv){
       if(i+1==argc)throw std::runtime_error("missing argument for "+s);
       std::string v=argv[++i];
       if(s=="--mode")mode=v;else if(s=="--device")device=std::stoi(v);
+      else if(s=="--candidate")candidate=std::stoi(v);
       else if(s=="--fixtures")fixtures=v;else if(s=="--duration")duration=std::stod(v);
       else if(s=="--m")shape.m=std::stoi(v);else if(s=="--n")shape.n=std::stoi(v);
       else if(s=="--k")shape.k=std::stoi(v);else if(s=="--rank")shape.rank=std::stoi(v);
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info")||device<0||device>31||!std::isfinite(duration)||duration<1||duration>10)
+    if((mode!="check"&&mode!="bench"&&mode!="info")||(candidate!=128&&candidate!=512)||device<0||device>31||!std::isfinite(duration)||duration<1||duration>10)
       throw std::runtime_error("invalid options");
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
@@ -167,16 +168,16 @@ int main(int argc,char**argv){
     std::mt19937 rng(20261119);std::vector<int8_t>a(std::size_t(shape.m)*shape.k),b(std::size_t(shape.n)*shape.k);
     for(auto&x:a)x=int8_t(int(rng()%129)-64);for(auto&x:b)x=int8_t(int(rng()%129)-64);
     Buffer<int8_t>da(a.size()),db(b.size());Buffer<uint32_t>oa(shape.groups()*16),ob(shape.groups()*16);
-    da.put(a);db.put(b);check(launch(da.p,db.p,oa.p,nullptr,shape,256,nullptr));check(launch(da.p,db.p,ob.p,nullptr,shape,512,nullptr));
+    da.put(a);db.put(b);check(launch(da.p,db.p,oa.p,nullptr,shape,256,nullptr));check(launch(da.p,db.p,ob.p,nullptr,shape,candidate,nullptr));
     check(cudaDeviceSynchronize());if(oa.get()!=ob.get())throw std::runtime_error("benchmark-shape variant mismatch");
     std::cout<<"{\"phase\":\"benchmark_shape\",\"m\":"<<shape.m<<",\"n\":"<<shape.n<<",\"k\":"<<shape.k
       <<",\"rank\":"<<shape.rank<<",\"proof_n\":"<<shape.proof_n<<"}\n";
     double a1=measure(da.p,db.p,oa.p,shape,256,duration,pci);
-    double b1=measure(da.p,db.p,ob.p,shape,512,duration,pci);
-    double b2=measure(da.p,db.p,ob.p,shape,512,duration,pci);
+    double b1=measure(da.p,db.p,ob.p,shape,candidate,duration,pci);
+    double b2=measure(da.p,db.p,ob.p,shape,candidate,duration,pci);
     double a2=measure(da.p,db.p,oa.p,shape,256,duration,pci);
-    std::cout<<"{\"phase\":\"summary\",\"arithmetic_correctness_passed\":true,\"kernel_512_over_256_speed_ratio\":"
-      <<std::sqrt(a1*a2/(b1*b2))<<",\"baseline\":\"our_256_thread_kernel_not_SRBMiner\",\"Pearl_hashrate_measured\":false}\n";
+    std::cout<<"{\"phase\":\"summary\",\"arithmetic_correctness_passed\":true,\"candidate_over_256_speed_ratio\":"
+      <<std::sqrt(a1*a2/(b1*b2))<<",\"candidate_threads\":"<<candidate<<",\"baseline\":\"our_256_thread_kernel_not_SRBMiner\",\"Pearl_hashrate_measured\":false}\n";
     return 0;
   }catch(const std::exception&e){std::cerr<<"ERROR: "<<e.what()<<"\n";return 1;}
 }

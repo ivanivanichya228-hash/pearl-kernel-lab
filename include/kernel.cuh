@@ -10,6 +10,8 @@ constexpr int stage_bytes = (tile_m + tile_n) * shared_stride;
 constexpr int shared_bytes(int pn) {
   return 2 * stage_bytes + (tile_m / 16) * (tile_n / pn) * 16 * sizeof(uint32_t);
 }
+// threads=128 selects compact 64x128 with lane-resident transcript.
+// threads=256/512 preserve the original 128x384 shared-history baselines.
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* transcript,
                    int32_t* debug_matrix, Shape p, int threads, cudaStream_t stream);
 cudaError_t resource_info(int threads, int proof_n, bool debug,
