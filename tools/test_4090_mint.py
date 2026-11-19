@@ -61,8 +61,12 @@ def main():
     if not args.expected_power_limit_w.is_finite() or not 0<args.expected_power_limit_w<=2000:
         raise ValueError('Invalid expected power limit')
     scheduled=validation_budget(args.duration,args.warmup,args.rounds,args.timeout_sec,args.mode,args.sanitizer)
-    sanitizer=shutil.which('compute-sanitizer') if args.sanitizer else None
-    if args.sanitizer and not sanitizer:raise ValueError('compute-sanitizer absent; no test started')
+    sanitizer=None
+    if args.sanitizer:
+        # Audit and CPU-only smoke test BEFORE any CUDA workload.
+        sys.path.insert(0,str(ROOT/'tools'))
+        from sanitizer_preflight import prepare,smoke_test
+        sanitizer=smoke_test(prepare())
     os_release=platform.freedesktop_os_release()
     if platform.system()!='Linux' or os_release.get('ID')!='linuxmint':
         raise ValueError('GPU tests in this package are restricted to Linux Mint')
@@ -80,7 +84,7 @@ def main():
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
              '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
     if args.allow_concurrent_miner:command.append('--allow-concurrent-miner')
-    if sanitizer:command=[sanitizer,'--tool','memcheck','--error-exitcode','86','--leak-check','full']+command
+    if sanitizer:command=[sanitizer['executable'],'--injection-path',sanitizer['injection_path'],'--tool','memcheck','--error-exitcode','86','--leak-check','full']+command
     print(json.dumps({'phase':'guard','gpu_uuid':uuid,'model':name,'expected_PL_W':str(limit),
                       'scheduled_seconds_excluding_checks':scheduled,'sanitizer':bool(sanitizer),'GPU_settings_changed':False}),flush=True)
     proc=subprocess.Popen(command,cwd=ROOT,env=env,start_new_session=True)

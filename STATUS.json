@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.3.2",
   "date": "2026-11-19",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -143,5 +143,13 @@
     "memcheck_run": false,
     "max_guard_timeout_seconds": 60,
     "independent_watchdog_required": true
+  },
+  "sanitizer_preflight": {
+    "module": "tools/sanitizer_preflight.py",
+    "explicit_injection_path": true,
+    "CPU_regressions_passed": 3,
+    "on_rig_verified": false,
+    "GPU_memcheck_passed": false,
+    "kernel_changed": false
   }
 }

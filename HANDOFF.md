@@ -1,3 +1,5 @@
+> Revision 0.3.2: fix installed sanitizer discovery first, following [REPAIR-SANITIZER-4090.md](REPAIR-SANITIZER-4090.md). No mining pause/GPU workload for this repair.
+
 > Revision 0.3.1: follow [VALIDATE-STAGE64-4090.md](VALIDATE-STAGE64-4090.md). It supersedes previous test tasks; kernel unchanged, stronger validation only.
 
 > Revision 0.3.0: [STAGE64-4090.md](STAGE64-4090.md) supersedes previous experiment instructions. New candidate is 256 threads / stage-k 64; rebuild required. No measured speedup yet.
