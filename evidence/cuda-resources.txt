@@ -1,0 +1,124 @@
+
+Fatbin elf code:
+================
+arch = sm_86
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = src/kernel.cu src/bench.cu 
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = src/kernel.cu src/bench.cu 
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+Fatbin ptx code:
+================
+arch = sm_86
+code version = [9,0]
+host = linux
+compile_size = 64bit
+compressed
+identifier = src/kernel.cu
+ptxasOptions = -v  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_86
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = src/kernel.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = src/kernel.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE:
+  REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin ptx code:
+================
+arch = sm_86
+code version = [9,0]
+host = linux
+compile_size = 64bit
+compressed
+identifier = src/bench.cu
+ptxasOptions = -v  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_86
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = src/bench.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = src/bench.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0

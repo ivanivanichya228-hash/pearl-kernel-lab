@@ -1,0 +1,9 @@
+{
+  "arch": "sm_86",
+  "scope": "aggregate static instruction sites across our kernel variants, not dynamic counts",
+  "sites": {
+    "IMMA": 288,
+    "LDGSTS": 96,
+    "REDUX": 216
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "version": "0.1.1",
+  "date": "2026-11-19",
+  "CUDA_compiler": "13.0.88",
+  "targets": [
+    "sm_86",
+    "sm_89"
+  ],
+  "host_build_succeeded": true,
+  "CPU_contract_checks_passed": true,
+  "independent_numpy_cpp_fixtures_passed": 6,
+  "CPU_fragment_mapping_model_passed": true,
+  "GPU_correctness_tested": false,
+  "GPU_performance_tested": false,
+  "full_Pearl_proof_verified": false,
+  "SRBMiner_compatibility_claimed": false,
+  "power_or_hashrate_improvement_measured": false,
+  "source_sha256": "f6a808ad6a8e2cb71c757ea130cfb170835e84a68e6922d7e0cb476c9f8de19d",
+  "binary_sha256": "1275bf11b5f2b112a5ca67c6867219832e8ca1e867682253707b5459738b12f2",
+  "compiled_resources": [
+    {
+      "arch": "sm_86",
+      "threads": 512,
+      "proof_n": 16,
+      "debug": false,
+      "resources": "REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_86",
+      "threads": 512,
+      "proof_n": 8,
+      "debug": false,
+      "resources": "REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_86",
+      "threads": 256,
+      "proof_n": 16,
+      "debug": false,
+      "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_86",
+      "threads": 256,
+      "proof_n": 8,
+      "debug": false,
+      "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_89",
+      "threads": 512,
+      "proof_n": 16,
+      "debug": false,
+      "resources": "REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_89",
+      "threads": 512,
+      "proof_n": 8,
+      "debug": false,
+      "resources": "REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_89",
+      "threads": 256,
+      "proof_n": 16,
+      "debug": false,
+      "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    },
+    {
+      "arch": "sm_89",
+      "threads": 256,
+      "proof_n": 8,
+      "debug": false,
+      "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+    }
+  ],
+  "dynamic_shared_bytes_by_proof_n": {
+    "16": 61440,
+    "8": 73728
+  },
+  "GPU_execution_gate": "--run-gpu; refuses visible SRBMiner process unless --allow-concurrent-miner",
+  "baseline": "our own 256-thread implementation, not SRBMiner",
+  "scope": "preformed signed INT8 prefix GEMM and rolling XOR transcript, no noise generation, commitment, BLAKE3, certificate or pool integration",
+  "CUDA_binary_build_version": "0.1.0",
+  "GPU_test_target": "RTX 4090 / Linux Mint only",
+  "read_only_PL_guard": "tools/test_4090_mint.py; explicit expected PL; UUID isolation; stop on PL/read failure",
+  "PL_guard_CPU_tests_passed": 4,
+  "miner_restore_implemented_in_harness": false,
+  "miner_restore_requirement": "Codex must prepare original-launch recovery and independent watchdog before any pause; see CODEX_TASK.md"
+}

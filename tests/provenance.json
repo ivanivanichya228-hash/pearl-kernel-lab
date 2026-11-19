@@ -1,0 +1,10 @@
+{
+  "upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9",
+  "helper_url": "https://github.com/pearl-research-labs/pearl/blob/38dd764ab0aec528e81fc467665c6762ef6739e9/zk-pow/src/circuit/chip/jackpot/helper.rs",
+  "helper_sha256": "1ee76cf5bb19479922d329fb4146e6230f7d476c47ce47eabf1778bf9e0d4a6b",
+  "PTX_reference": "https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-fragment-mma-16832",
+  "implemented_subproblem": "signed INT8 preformed A and BT, INT32 prefix GEMM, 16-word rolling XOR transcript, 16x8 or 16x16 proof tiles",
+  "upstream_noise_generation_included": false,
+  "full_proof_verifier_included": false,
+  "SRBMiner_binary_modified": false
+}

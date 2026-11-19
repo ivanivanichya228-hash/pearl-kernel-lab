@@ -1,0 +1,74 @@
+[
+  {
+    "file": "case-0.bin",
+    "shape": [
+      16,
+      16,
+      32,
+      32,
+      8
+    ],
+    "kind": "zero",
+    "sha256": "12e7215f539955e8c057b956debdd570fc00253eeff1c752ba64d5d867a7d65a"
+  },
+  {
+    "file": "case-1.bin",
+    "shape": [
+      16,
+      16,
+      2176,
+      128,
+      16
+    ],
+    "kind": "negative_spike",
+    "sha256": "14eaa7a42b17cb0ff5a22440767f5d999279557bdc19f085b71752631876dc0d"
+  },
+  {
+    "file": "case-2.bin",
+    "shape": [
+      32,
+      48,
+      4096,
+      128,
+      8
+    ],
+    "kind": "random",
+    "sha256": "fc576f71ea13e0b6526a52c5e8b6dd53ac3ba50f94ab5ec16e60ab65ca0336ac"
+  },
+  {
+    "file": "case-3.bin",
+    "shape": [
+      160,
+      400,
+      512,
+      128,
+      16
+    ],
+    "kind": "random",
+    "sha256": "d33e535ce36c065eae4e4bd579e617e8c7d7f51bb409e2c2188ef0ac37193008"
+  },
+  {
+    "file": "case-4.bin",
+    "shape": [
+      32,
+      48,
+      2048,
+      256,
+      16
+    ],
+    "kind": "random",
+    "sha256": "b8a8523a00ec120fd48e8e7c1d17df37728badf88325027123ce6c36cb53f217"
+  },
+  {
+    "file": "case-5.bin",
+    "shape": [
+      16,
+      16,
+      65536,
+      1024,
+      16
+    ],
+    "kind": "extreme",
+    "sha256": "85ead345aa54129bd0651606665c59241b1e610d54077e4c3150df8f0f45a2e4"
+  }
+]

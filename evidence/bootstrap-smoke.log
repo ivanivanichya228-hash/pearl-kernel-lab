@@ -1,0 +1,11 @@
+cuda_nvcc: SHA-256 verified
+cuda_cudart: SHA-256 verified
+cuda_cccl: SHA-256 verified
+cuda_crt: SHA-256 verified
+libnvvm: SHA-256 verified
+./build/test-contract
+CPU contract checks passed
+./build/check-fixtures
+6 independent NumPy/C++ fixtures matched
+make: Nothing to be done for 'all'.
+Build completed. No GPU tests were run.

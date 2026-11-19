@@ -1,0 +1,114 @@
+[
+  {
+    "arch": "sm_86",
+    "threads": 512,
+    "proof_n": 16,
+    "debug": false,
+    "resources": "REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 512,
+    "proof_n": 16,
+    "debug": true,
+    "resources": "REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 512,
+    "proof_n": 8,
+    "debug": false,
+    "resources": "REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 512,
+    "proof_n": 8,
+    "debug": true,
+    "resources": "REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 256,
+    "proof_n": 16,
+    "debug": false,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 256,
+    "proof_n": 16,
+    "debug": true,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 256,
+    "proof_n": 8,
+    "debug": false,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_86",
+    "threads": 256,
+    "proof_n": 8,
+    "debug": true,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 512,
+    "proof_n": 16,
+    "debug": false,
+    "resources": "REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 512,
+    "proof_n": 16,
+    "debug": true,
+    "resources": "REG:126 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 512,
+    "proof_n": 8,
+    "debug": false,
+    "resources": "REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 512,
+    "proof_n": 8,
+    "debug": true,
+    "resources": "REG:128 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 256,
+    "proof_n": 16,
+    "debug": false,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 256,
+    "proof_n": 16,
+    "debug": true,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 256,
+    "proof_n": 8,
+    "debug": false,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  },
+  {
+    "arch": "sm_89",
+    "threads": 256,
+    "proof_n": 8,
+    "debug": true,
+    "resources": "REG:238 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0"
+  }
+]

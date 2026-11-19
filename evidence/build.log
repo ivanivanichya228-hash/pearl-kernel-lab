@@ -1,0 +1,85 @@
+/tmp/pearl-cuda-toolkit/bin/nvcc -std=c++17 -O3 -lineinfo -Iinclude -L/tmp/pearl-cuda-toolkit/lib -gencode arch=compute_86,code=sm_86 -gencode arch=compute_89,code=sm_89 -gencode arch=compute_86,code=compute_86 -Xptxas=-v src/kernel.cu src/bench.cu -Xcompiler=-pthread -ldl -o build/pearl-bench
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 126 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 49.148 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 126 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 65.126 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 50.797 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 86.872 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 85.838 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 126.106 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 87.527 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_86'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 138.527 ms
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 126 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 46.473 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 126 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 66.904 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 50.666 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi512ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 69.724 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 70.617 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi16ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 123.538 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb0EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 90.447 ms
+ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE' for 'sm_89'
+ptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__688aff2f_9_kernel_cu_c156215310pearl_int8ILi256ELi8ELb1EEEvPKaS3_PjPiNS_5ShapeE
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 238 registers, used 1 barriers, 404 bytes cmem[0]
+ptxas info    : Compile time = 135.875 ms
+ptxas info    : 0 bytes gmem
+ptxas info    : 0 bytes gmem
