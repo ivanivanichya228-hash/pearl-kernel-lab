@@ -1,5 +1,5 @@
 {
-  "version": "0.3.2",
+  "version": "0.3.3",
   "date": "2026-11-19",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -148,6 +148,17 @@
     "module": "tools/sanitizer_preflight.py",
     "explicit_injection_path": true,
     "CPU_regressions_passed": 3,
+    "on_rig_verified": false,
+    "GPU_memcheck_passed": false,
+    "kernel_changed": false
+  },
+  "standalone_sanitizer": {
+    "archive_component": "13.0.85",
+    "actual_tool": "2025.3.1.0",
+    "sha256": "8eeba425f66fdd17e78d0dff49baa8b3e4599fc0579984eab7ad9c486a95ebf2",
+    "download_verified": true,
+    "native_layout_and_dependencies_checked": true,
+    "CPU_true_smoke_passed": false,
     "on_rig_verified": false,
     "GPU_memcheck_passed": false,
     "kernel_changed": false

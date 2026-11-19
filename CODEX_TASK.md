@@ -1,3 +1,5 @@
+> Revision0.3.3: follow [ISOLATED-SANITIZER-4090.md](ISOLATED-SANITIZER-4090.md). Use pinned standalone sanitizer; old installed-tool tasks are historical.
+
 > Revision 0.3.2: fix installed sanitizer discovery first, following [REPAIR-SANITIZER-4090.md](REPAIR-SANITIZER-4090.md). No mining pause/GPU workload for this repair.
 
 > Revision 0.3.1: follow [VALIDATE-STAGE64-4090.md](VALIDATE-STAGE64-4090.md). It supersedes previous test tasks; kernel unchanged, stronger validation only.

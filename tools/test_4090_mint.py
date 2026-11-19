@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only board/PL guard around the compiled harness. Never sets GPU state."""
-import argparse,csv,io,json,math,os,platform,shutil,signal,subprocess,sys,time
+import argparse,csv,io,json,math,os,platform,shutil,signal,subprocess,sys,tempfile,time
 from decimal import Decimal,InvalidOperation
 from pathlib import Path
 
@@ -44,6 +44,21 @@ def terminate_group(proc):
     except ProcessLookupError:pass
     proc.wait()
 
+def validate_memcheck(output,returncode):
+    if returncode!=0:raise ValueError('Compute Sanitizer exit '+str(returncode))
+    import re
+    if re.search(r'(?im)^.*\bError:',output):raise ValueError('Sanitizer emitted Error despite exit0')
+    summaries=re.findall(r'ERROR SUMMARY:\s*(\d+) errors\b',output)
+    if not summaries or any(int(n)!=0 for n in summaries):
+        raise ValueError('No clean memcheck summary; GPU gate remains closed')
+    correctness=False
+    for line in output.splitlines():
+        try:record=json.loads(line)
+        except (ValueError,TypeError):continue
+        if isinstance(record,dict) and record.get('phase')=='correctness':
+            correctness=record.get('passed') is True and record.get('non_debug_transcript_checked') is True
+    if not correctness:raise ValueError('No completed debug/non-debug correctness result')
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-gpu',action='store_true')
@@ -63,10 +78,11 @@ def main():
     scheduled=validation_budget(args.duration,args.warmup,args.rounds,args.timeout_sec,args.mode,args.sanitizer)
     sanitizer=None
     if args.sanitizer:
-        # Audit and CPU-only smoke test BEFORE any CUDA workload.
+        # Preparation/download occurs separately, while mining continues.
+        # Never use the broken system tool or the CPU-true success gate here.
         sys.path.insert(0,str(ROOT/'tools'))
-        from sanitizer_preflight import prepare,smoke_test
-        sanitizer=smoke_test(prepare())
+        from prepare_sanitizer import resolve_bundle,child_env
+        sanitizer=resolve_bundle()
     os_release=platform.freedesktop_os_release()
     if platform.system()!='Linux' or os_release.get('ID')!='linuxmint':
         raise ValueError('GPU tests in this package are restricted to Linux Mint')
@@ -80,14 +96,21 @@ def main():
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
     if '--rounds 1..3' not in help_result.stdout:
         raise ValueError('Stale harness; rebuild the validation revision before any pause')
-    env=os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
+    env=child_env(sanitizer) if sanitizer else os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
              '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
     if args.allow_concurrent_miner:command.append('--allow-concurrent-miner')
     if sanitizer:command=[sanitizer['executable'],'--injection-path',sanitizer['injection_path'],'--tool','memcheck','--error-exitcode','86','--leak-check','full']+command
     print(json.dumps({'phase':'guard','gpu_uuid':uuid,'model':name,'expected_PL_W':str(limit),
-                      'scheduled_seconds_excluding_checks':scheduled,'sanitizer':bool(sanitizer),'GPU_settings_changed':False}),flush=True)
-    proc=subprocess.Popen(command,cwd=ROOT,env=env,start_new_session=True)
+                      'scheduled_seconds_excluding_checks':scheduled,'sanitizer':bool(sanitizer),'sanitizer_executable':sanitizer['executable'] if sanitizer else None,'GPU_settings_changed':False}),flush=True)
+    capture=tempfile.TemporaryFile(mode='w+t') if sanitizer else None
+    emitted=False
+    try:
+        proc=subprocess.Popen(command,cwd=ROOT,env=env,start_new_session=True,
+            stdout=capture,stderr=subprocess.STDOUT if sanitizer else None)
+    except BaseException:
+        if capture:capture.close()
+        raise
     start=time.monotonic()
     try:
         while proc.poll() is None:
@@ -97,11 +120,18 @@ def main():
             time.sleep(0.2)
         final_uuid,_,final_limit=query(smi,uuid)
         if final_uuid!=uuid or final_limit!=limit:raise ValueError('Final PL differs')
+        if capture:
+            capture.seek(0);output=capture.read();print(output,end='',flush=True);emitted=True
+            validate_memcheck(output,proc.returncode)
         print(json.dumps({'phase':'guard_final','PL_W':str(final_limit),'unchanged':True,
                           'child_exit_code':proc.returncode}),flush=True)
         return proc.returncode
     finally:
         terminate_group(proc)
+        if capture:
+            if not emitted:
+                capture.seek(0);print(capture.read(),end='',flush=True)
+            capture.close()
 
 if __name__=='__main__':
     try:sys.exit(main())
