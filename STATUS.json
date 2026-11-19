@@ -1,5 +1,5 @@
 {
-  "version": "0.3.3",
+  "version": "0.4.0",
   "date": "2026-11-19",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -162,5 +162,22 @@
     "on_rig_verified": false,
     "GPU_memcheck_passed": false,
     "kernel_changed": false
+  },
+  "proof_compatibility": {
+    "upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9",
+    "official_plain_proofs_verified": 6,
+    "official_verifier_mutation_rejections": 36,
+    "local_keyed_hash_mutation_checks": 12,
+    "independent_CPP_matrix_transcript_matches": 6,
+    "CPP_outputs_reverified_against_official_proofs": 6,
+    "corrupt_external_transcript_rejected": true,
+    "all_fixture_files_reproduced_byte_identically": true,
+    "GPU_executed": false,
+    "recursive_ZK_certificate_generated": false,
+    "active_pool_job_compatibility_verified": false,
+    "kernel_changed": false,
+    "kernel_sha256": "91e9721506867dda5872267c465b0ee2c33596f96b54d788641e5d163816c352",
+    "rustc": "1.90.0",
+    "fixtures_archive_sha256": "89ee357782d004d4ee5a08b85abcdd1867539e5769b754030dfb8cba18684f3b"
   }
 }

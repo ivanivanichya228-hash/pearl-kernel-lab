@@ -65,6 +65,8 @@ def main():
     p.add_argument('--mode',choices=['check','bench','info'],default='check')
     p.add_argument('--gpu',default='0',help='physical nvidia-smi index or GPU UUID')
     p.add_argument('--expected-power-limit-w',type=Decimal,required=True)
+    p.add_argument('--fixtures',type=Path,default=ROOT/'tests/fixtures')
+    p.add_argument('--export-transcripts',type=Path)
     p.add_argument('--duration',type=float,default=2)
     p.add_argument('--timeout-sec',type=float,default=60)
     p.add_argument('--rounds',type=int,default=1)
@@ -96,9 +98,12 @@ def main():
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
     if '--rounds 1..3' not in help_result.stdout:
         raise ValueError('Stale harness; rebuild the validation revision before any pause')
+    if args.export_transcripts and '--export-transcripts' not in help_result.stdout:
+        raise ValueError('Transcript export requires rebuilt bench; no test started')
     env=child_env(sanitizer) if sanitizer else os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
-             '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
+             '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(args.fixtures.resolve())]
+    if args.export_transcripts:command+=['--export-transcripts',str(args.export_transcripts.resolve())]
     if args.allow_concurrent_miner:command.append('--allow-concurrent-miner')
     if sanitizer:command=[sanitizer['executable'],'--injection-path',sanitizer['injection_path'],'--tool','memcheck','--error-exitcode','86','--leak-check','full']+command
     print(json.dumps({'phase':'guard','gpu_uuid':uuid,'model':name,'expected_PL_W':str(limit),

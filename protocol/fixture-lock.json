@@ -1,0 +1,29 @@
+{
+  "archive": "proof-fixtures-v1.tar.gz",
+  "sha256": "89ee357782d004d4ee5a08b85abcdd1867539e5769b754030dfb8cba18684f3b",
+  "size": 1278983,
+  "upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9",
+  "files": {
+    "case-0.bin": "c4873c47dc77ed2a4e503d40933d77a6f4bc42406c392a14e004d846459d24bd",
+    "case-0.header.bin": "c5515d2acf0c3dc4894a6aa29fe6a526c5a170390804ef2d77c6f603b9cba1f9",
+    "case-0.proof.bin": "016ae8c46bd67d6bf7420fa4bce04c6b835b77d238bc4062fa1028ad8474fa21",
+    "case-1.bin": "893e5f8852e61e15247826327e411e3177102735561e128f2ff765bc245a272c",
+    "case-1.header.bin": "06029cf2e8e1100dd8eba722042a74e382ae50993692be6dad9210837bccabbc",
+    "case-1.proof.bin": "edb45578b7da94b77ab61479b0a6126e0110342a4020f5128f2c2534597aa41a",
+    "case-2.bin": "2bef2b3ded8338e2f5ceee64536ab5406d2a4cd23ed5030d828720abe460b63e",
+    "case-2.header.bin": "484a4205df89b07e8554d8f6f1bda020c79294366eaf77a6e237ef977307d1cc",
+    "case-2.proof.bin": "b4ac8322f11d3aa2460504fa871e4afd633b81b2aadf889808353e33fda5dfb1",
+    "case-3.bin": "3598aeb8802a509efc4b971fa7c1cdba2f32b92a5ecc299eac71bdb6ce60bba1",
+    "case-3.header.bin": "7a254b6090b0788ce7009a02e2699856f0ce5c80a068f32e890344ec812810e1",
+    "case-3.proof.bin": "dd02835c36f01c4ff51d881c2abb8c903b23919a99be783800b6b4c97a272a36",
+    "case-4.bin": "aaf7e607e15ebddcf0b58ee7f57306f2e80a6e963a5cf05703c6835a8d5f6522",
+    "case-4.header.bin": "22d60331b8f56be1f3a8f91e20ad1546db1208933cd4f81de3cf1c0f7c97223c",
+    "case-4.proof.bin": "c0082f4bde98077027f4681fc469dde568b9303d469ae28e3d6ff3e00f6c07f8",
+    "case-5.bin": "6d90e6460146c41b3f3bd316acdfd824722a3ccad845a49c8c48d3917ddc00cf",
+    "case-5.header.bin": "525155b2a591459565b76511364988e5113f583835e3d251aff11a0e6e50fb4a",
+    "case-5.proof.bin": "694e1914ee805d7f6a4209f44352a044126eb1b5ed777d23654a1c8bda4b21f6",
+    "manifest.json": "6c2bbb9d5742f44ab58dbf3f0d3d54286e849b972460c5f46b9d210e3b609a5e"
+  },
+  "synthetic_only": true,
+  "GPU_verified": false
+}

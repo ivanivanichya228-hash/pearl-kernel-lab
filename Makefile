@@ -25,3 +25,6 @@ cpu-check: build/test-contract build/check-fixtures build/test-validation
 	python3 tests/test_stage64.py
 clean:
 	rm -rf build
+
+build/protocol-cpu: tests/protocol_cpu.cpp include/fixture.hpp include/contract.hpp | build
+	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@

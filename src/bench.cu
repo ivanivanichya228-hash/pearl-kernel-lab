@@ -91,7 +91,12 @@ void resources(int pn) {
       <<",\"shared_bytes_per_block\":"<<(stage_k == 64 ? stage64_shared_bytes(pn) : (threads == 128 ? 18432 : shared_bytes(pn)))<<",\"active_blocks_per_SM\":"<<blocks<<"}\n";
   }
 }
-void verify(const std::string&root) {
+void verify(const std::string&root, const std::string& export_path) {
+  std::ofstream exported;
+  if(!export_path.empty()) {
+    exported.open(export_path);
+    if(!exported)throw std::runtime_error("cannot open transcript export");
+  }
   for(int i=0;i<6;++i){
     auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");
     Buffer<int8_t>a(f.a.size()),b(f.bt.size());Buffer<uint32_t>out(f.golden.transcript.size());
@@ -109,6 +114,12 @@ void verify(const std::string&root) {
       check(cudaDeviceSynchronize());
       if(out.get()!=f.golden.transcript)
         throw std::runtime_error("non-debug transcript mismatch fixture="+std::to_string(i));
+      if(exported.is_open() && variant==64) {
+        auto values=out.get();exported<<"{\"case\":"<<i<<",\"transcript\":[";
+        for(std::size_t j=0;j<values.size();++j){if(j)exported<<',';exported<<values[j];}
+        exported<<"]}\n";
+        if(!exported)throw std::runtime_error("transcript export failed");
+      }
     }
   }
   std::cout<<"{\"phase\":\"correctness\",\"passed\":true,\"fixtures\":6,\"variants_per_fixture\":4,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true}\n";
@@ -144,13 +155,13 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures";
+    bool allow=false,concurrent=false;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path;
     Shape shape{2048,6144,4096,128,16};ValidationPlan plan;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
         std::cout<<"pearl-bench --run-gpu [--mode check|bench|info] [--device N]\n"
-          <<"  [--fixtures DIR] [--m M --n N --k K --rank R --proof-n 8|16]\n"
+          <<"  [--fixtures DIR --export-transcripts FILE] [--m M --n N --k K --rank R --proof-n 8|16]\n"
           <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|512 --stage-k 32|64] [--allow-concurrent-miner]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
@@ -162,6 +173,7 @@ int main(int argc,char**argv){
       if(s=="--mode")mode=v;else if(s=="--device")device=std::stoi(v);
       else if(s=="--stage-k")stage_k=std::stoi(v);
       else if(s=="--candidate")candidate=std::stoi(v);
+      else if(s=="--export-transcripts")export_path=v;
       else if(s=="--fixtures")fixtures=v;else if(s=="--duration")plan.duration=std::stod(v);
       else if(s=="--warmup")plan.warmup=std::stod(v);
       else if(s=="--rounds")plan.rounds=std::stoi(v);
@@ -181,7 +193,7 @@ int main(int argc,char**argv){
     std::cout<<"{\"phase\":\"device\",\"name\":"<<quoted(prop.name)<<",\"pci\":"<<quoted(pci)
       <<",\"SMs\":"<<prop.multiProcessorCount<<",\"concurrent_miner_detected\":"<<(miner?"true":"false")<<"}\n";
     resources(shape.proof_n);if(mode=="info")return 0;
-    verify(fixtures);if(mode=="check")return 0;
+    verify(fixtures,export_path);if(mode=="check")return 0;
     const uint64_t bytes=uint64_t(shape.m+shape.n)*shape.k+uint64_t(shape.groups())*16*4*2;
     std::size_t free=0,total=0;check(cudaMemGetInfo(&free,&total));
     if(bytes+256*1024*1024>free)throw std::runtime_error("insufficient free GPU memory for benchmark");

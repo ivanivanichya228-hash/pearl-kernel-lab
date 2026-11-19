@@ -5,3 +5,5 @@ __pycache__/
 *.jsonl
 .toolchain/
 .sanitizer-cache/
+.proof-cache/
+proof-oracle/target/
