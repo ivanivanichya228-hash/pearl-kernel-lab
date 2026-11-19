@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only board/PL guard around the compiled harness. Never sets GPU state."""
-import argparse,csv,io,json,os,platform,shutil,subprocess,sys,time
+import argparse,csv,io,json,math,os,platform,shutil,signal,subprocess,sys,time
 from decimal import Decimal,InvalidOperation
 from pathlib import Path
 
@@ -22,6 +22,28 @@ def query(smi,selector):
                       '--id='+selector],capture_output=True,text=True,check=True,timeout=5)
     return parse_board(r.stdout)
 
+def validation_budget(duration,warmup,rounds,timeout,mode,sanitizer):
+    if (not all(math.isfinite(x) for x in (duration,warmup,timeout)) or
+        not 1<=duration<=10 or not 0<=warmup<=5 or not 1<=rounds<=3 or
+        not 10<=timeout<=60):
+        raise ValueError('Invalid validation duration/rounds/timeout')
+    scheduled=4*rounds*(duration+warmup)
+    if mode=='bench' and (scheduled>45 or timeout<scheduled+10):
+        raise ValueError('Benchmark exceeds pause budget or lacks 10s check margin')
+    if sanitizer and mode!='check':
+        raise ValueError('Compute Sanitizer is restricted to correctness mode')
+    return scheduled if mode=='bench' else 0
+
+def terminate_group(proc):
+    # Popen owns a new session. Only terminate this experiment and its descendants.
+    try:os.killpg(proc.pid,signal.SIGTERM)
+    except ProcessLookupError:return
+    try:proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:pass
+    try:os.killpg(proc.pid,signal.SIGKILL)
+    except ProcessLookupError:pass
+    proc.wait()
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-gpu',action='store_true')
@@ -29,13 +51,18 @@ def main():
     p.add_argument('--gpu',default='0',help='physical nvidia-smi index or GPU UUID')
     p.add_argument('--expected-power-limit-w',type=Decimal,required=True)
     p.add_argument('--duration',type=float,default=2)
-    p.add_argument('--timeout-sec',type=float,default=90)
+    p.add_argument('--timeout-sec',type=float,default=60)
+    p.add_argument('--rounds',type=int,default=1)
+    p.add_argument('--warmup',type=float,default=0)
+    p.add_argument('--sanitizer',action='store_true',help='existing compute-sanitizer memcheck; check mode only')
     p.add_argument('--allow-concurrent-miner',action='store_true')
     args=p.parse_args()
     if not args.run_gpu:raise ValueError('Explicit --run-gpu is required')
     if not args.expected_power_limit_w.is_finite() or not 0<args.expected_power_limit_w<=2000:
         raise ValueError('Invalid expected power limit')
-    if not 1<=args.duration<=10 or not 10<=args.timeout_sec<=300:raise ValueError('Invalid duration/timeout')
+    scheduled=validation_budget(args.duration,args.warmup,args.rounds,args.timeout_sec,args.mode,args.sanitizer)
+    sanitizer=shutil.which('compute-sanitizer') if args.sanitizer else None
+    if args.sanitizer and not sanitizer:raise ValueError('compute-sanitizer absent; no test started')
     os_release=platform.freedesktop_os_release()
     if platform.system()!='Linux' or os_release.get('ID')!='linuxmint':
         raise ValueError('GPU tests in this package are restricted to Linux Mint')
@@ -47,15 +74,16 @@ def main():
     exe=ROOT/'build/pearl-bench'
     if not exe.is_file():raise ValueError('Build the harness first')
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
-    if '--stage-k 32|64' not in help_result.stdout:
-        raise ValueError('Stale harness; rebuild the compact revision before any pause')
+    if '--rounds 1..3' not in help_result.stdout:
+        raise ValueError('Stale harness; rebuild the validation revision before any pause')
     env=os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
-             '--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
+             '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(ROOT/'tests/fixtures')]
     if args.allow_concurrent_miner:command.append('--allow-concurrent-miner')
+    if sanitizer:command=[sanitizer,'--tool','memcheck','--error-exitcode','86','--leak-check','full']+command
     print(json.dumps({'phase':'guard','gpu_uuid':uuid,'model':name,'expected_PL_W':str(limit),
-                      'GPU_settings_changed':False}),flush=True)
-    proc=subprocess.Popen(command,cwd=ROOT,env=env)
+                      'scheduled_seconds_excluding_checks':scheduled,'sanitizer':bool(sanitizer),'GPU_settings_changed':False}),flush=True)
+    proc=subprocess.Popen(command,cwd=ROOT,env=env,start_new_session=True)
     start=time.monotonic()
     try:
         while proc.poll() is None:
@@ -69,10 +97,7 @@ def main():
                           'child_exit_code':proc.returncode}),flush=True)
         return proc.returncode
     finally:
-        if proc.poll() is None:
-            proc.terminate()
-            try:proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:proc.kill();proc.wait()
+        terminate_group(proc)
 
 if __name__=='__main__':
     try:sys.exit(main())

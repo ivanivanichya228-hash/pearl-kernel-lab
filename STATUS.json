@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "date": "2026-11-19",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -127,6 +127,21 @@
     "GPU_performance_tested": false,
     "CPU_model_passed": true,
     "compiler": "13.0.88",
-    "baseline": "own 256-thread stage32 kernel, not SRBMiner"
+    "baseline": "own 256-thread stage32 kernel, not SRBMiner",
+    "initial_user_GPU_test": {
+      "correct": true,
+      "speed_ratio_vs_own_stage32": 1.09628,
+      "short_ABBA_only": true,
+      "report": "user supplied TEST-RESULT-STAGE64-4090-MINT.md",
+      "SRBMiner_comparison": false
+    }
+  },
+  "validation_revision": {
+    "GPU_executed": false,
+    "kernel_changed": false,
+    "repeatability_plan_seconds": 40,
+    "memcheck_run": false,
+    "max_guard_timeout_seconds": 60,
+    "independent_watchdog_required": true
   }
 }

@@ -7,7 +7,7 @@ NVFLAGS = -std=c++17 -O3 -lineinfo -Iinclude -L$(CUDA_HOME)/lib $(CUDA_ARCH_FLAG
 all: build/pearl-bench
 build:
 	mkdir -p build
-build/pearl-bench: src/kernel.cu src/bench.cu include/kernel.cuh include/contract.hpp include/fixture.hpp | build
+build/pearl-bench: src/kernel.cu src/bench.cu include/kernel.cuh include/contract.hpp include/fixture.hpp include/validation.hpp | build
 	$(NVCC) $(NVFLAGS) src/kernel.cu src/bench.cu -Xcompiler=-pthread -ldl -o $@
 build/test-contract: tests/test_contract.cpp include/contract.hpp | build
 	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
@@ -15,7 +15,10 @@ build/check-fixtures: tests/check_fixtures.cpp include/fixture.hpp include/contr
 	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
 fixtures:
 	python3 tools/make_fixtures.py
-cpu-check: build/test-contract build/check-fixtures
+build/test-validation: tests/test_validation.cpp include/validation.hpp | build
+	$(CXX) -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude $< -o $@
+cpu-check: build/test-contract build/check-fixtures build/test-validation
+	./build/test-validation
 	./build/test-contract
 	./build/check-fixtures
 	python3 tests/test_compact.py
