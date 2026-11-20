@@ -1,5 +1,13 @@
 # Bounded offline batch pipeline — 0.6.0
 
+VALIDATION COMPLETED 2026-11-20: Mint4090 passed the single pipeline-check (195 vectors,
+4 groups, hits[1,3], memcheck0/leaks0). Actual GPU export SHA256
+7dd113eadb481bebb723d1ebc4a10f7dd68d4fbb42d8ff10880dc70dae2b9a93
+was independently finalized with the pinned official Pearl oracle: both proofs pass structure
+and exact SYNTHETIC target; all four transcripts match. Both submit frames round-trip offline.
+See pool/GPU-PIPELINE-RESULT.json. The rig report records7.912157s pause and333.379TH/s restored
+at unchanged310W PL. No real share was sent. The task below is historical: DO NOT rerun it.
+
 This revision connects already prepared noisy matrices to stage64 GEMM, keyed BLAKE3 filtering,
 hit indices and official plain-proof reconstruction. It is not a live mining loop.
 The captured header is archived. The diagnostic target/job ID are SYNTHETIC and must never

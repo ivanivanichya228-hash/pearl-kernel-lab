@@ -206,7 +206,7 @@
   },
   "real_pool_share_accepted": false,
   "complete_miner": false,
-  "current_revision_GPU_executed": false,
+  "current_revision_GPU_executed": true,
   "offline_batch_pipeline": {
     "official_proof_and_exact_target_passed": true,
     "candidates": 4,
@@ -229,6 +229,16 @@
     "network_used": false,
     "share_sent": false
   },
-  "history_note": "Older GPU_tested=false fields record historical local build stages, not the supplied later rig evidence. Current new pipeline/filter GPU result is pending.",
-  "current_batch_archive_sha256": "b021d10596ce86ecf29066a6058303b7601fc7300e0f3f979ad1670d2d4c3f3f"
+  "history_note": "Historical false fields describe earlier local build stages. Current batch validation and actual GPU proof recheck are recorded in current_batch_pipeline_verification; no live pool share or SRBMiner speed comparison.",
+  "current_batch_archive_sha256": "b021d10596ce86ecf29066a6058303b7601fc7300e0f3f979ad1670d2d4c3f3f",
+  "current_batch_pipeline_verification": {
+    "evidence": "pool/GPU-PIPELINE-RESULT.json",
+    "official_actual_GPU_plain_proofs_verified": 2,
+    "all_actual_GPU_transcripts_verified": 4,
+    "synthetic_target": true,
+    "rig_reported_sanitizer_errors": 0,
+    "rig_reported_leaked_bytes": 0,
+    "real_pool_share_accepted": false,
+    "SRBMiner_speedup_measured": false
+  }
 }
