@@ -1,3 +1,5 @@
+Next measurement: [RATE-STABILITY.md](RATE-STABILITY.md) — candidates/s and full-cycle costs, one bounded540s Mint4090 window. First real share accepted; no SRBMiner speedup claim.
+
 Latest: forced disk sync removed for disposable work; [ACCEPTANCE-TEST.md](ACCEPTANCE-TEST.md) prepares one bounded test up to first accepted share. Extended pause requires user approval; no automatic GPU run.
 
 Current fix: [PREPARE-FIX.md](PREPARE-FIX.md). CPU preparation optimized and batch logs preserved. No accepted real share; do not rerun the old30s GPU task.

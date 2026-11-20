@@ -1,5 +1,5 @@
 {
-  "version": "0.7.2",
+  "version": "0.8.0",
   "date": "2026-11-20",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -292,5 +292,23 @@
     "maximum_main_miner_pause_seconds": 600,
     "stop_after_first_accepted": true,
     "real_pool_share_accepted": false
+  },
+  "first_real_acceptance": {
+    "reported": true,
+    "evidence": "miner/ACCEPTANCE-ANALYSIS-4090.json",
+    "tested_commit": "26ee38706d93cc577b497ddacd61026e9f5e32e2",
+    "sent": 1,
+    "accepted": 1,
+    "rejected": 0,
+    "unknown": 0,
+    "proof_binary_independently_reverified_here": false
+  },
+  "full_cycle_metrics": {
+    "module": "tools/miner_metrics.py",
+    "GPU_executed_here": false,
+    "real_stability_run_completed": false,
+    "task": "RATE-STABILITY.md",
+    "kernel_and_oracle_changed": false,
+    "SRBMiner_equivalent_units_assumed": false
   }
 }

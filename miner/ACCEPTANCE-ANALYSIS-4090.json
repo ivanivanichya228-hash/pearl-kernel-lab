@@ -1,0 +1,56 @@
+{
+  "source": "uploaded REPORT-ACCEPTANCE-4090.md + ACCEPTED-RECEIPT-4090.json",
+  "tested_commit": "26ee38706d93cc577b497ddacd61026e9f5e32e2",
+  "reported_live_counters": {
+    "sent": 1,
+    "accepted": 1,
+    "rejected": 0,
+    "unknown": 0,
+    "completed_batches": 3,
+    "stale": 0
+  },
+  "receipt": {
+    "request_id": 2,
+    "result": true,
+    "error": null,
+    "job_fingerprint": "a3bd3f86be1005ef55354c1f0ddeb39179503ddd2752fc071539e9c0becb2e28",
+    "proof_sha256": "8b79d81b07fe5cd3eda22fb9a52fd2b7f2e60e218cd5c447723bf453d88c0f1c",
+    "pool_reply": {
+      "error": null,
+      "id": 2,
+      "result": true
+    },
+    "received_at_unix": 1795146618.8019671
+  },
+  "proof_binary_independently_reverified_here": false,
+  "reported_client_wall_seconds": 27.082794091,
+  "reported_main_miner_pause_seconds": 32.095303868,
+  "profile": {
+    "m": 131072,
+    "n": 131072,
+    "k": 4096,
+    "rank": 256,
+    "proof_rows": 16,
+    "proof_columns": 16
+  },
+  "reported_full_completed_candidate_groups": 201326592,
+  "completed_candidates_per_second": 7433745.252558845,
+  "dense_arithmetic_equivalent_TOP_s": 15.589693723894287,
+  "arithmetic_convention": "2 dense operations per multiply-add; NOT assumed equal to SRBMiner or pool TH/s",
+  "stage_seconds_from_report_rounded_6_places": {
+    "prepare": 15.021341,
+    "GPU_stage_including_process_transfers_sync": 8.175428,
+    "proof_reconstruction_and_verification": 2.335701,
+    "remaining_client_wall": 1.5503240910000002
+  },
+  "stage_wall_fractions": {
+    "prepare": 0.5546451724857963,
+    "GPU_stage_including_process_transfers_sync": 0.30186796726105936,
+    "proof_reconstruction_and_verification": 0.08624298483206305,
+    "remaining_client_wall": 0.05724387542108128
+  },
+  "server_hashrate_estimated_from_one_share": false,
+  "stability_proven": false,
+  "SRBMiner_speedup_measured": false,
+  "note": "Post-hoc work-count calculation from one stopped-after-first-share run; not a controlled speed or efficiency benchmark."
+}

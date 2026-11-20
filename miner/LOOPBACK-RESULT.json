@@ -1,5 +1,7 @@
 {
   "actual_CLI_entry_tested": true,
+  "full_wall_rate_accounting_checked": true,
+  "completed_fresh_candidate_groups": 8,
   "loopback_pool_only": true,
   "external_pool_contacted": false,
   "GPU_executed": false,
