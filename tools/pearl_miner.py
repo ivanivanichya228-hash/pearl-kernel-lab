@@ -37,7 +37,9 @@ class Session:
  async def read(self):
   try:
    while True:
-    line=await asyncio.wait_for(self.reader.readline(),90)
+    # A quiet but connected pool is not a failed session. run() owns the total
+    # deadline; authorization/submission keep their separate response deadlines.
+    line=await self.reader.readline()
     if not line:raise ConnectionError('Pool disconnected')
     if len(line)>MAX_LINE:raise ProtocolError('Pool line too large')
     try:msg=json.loads(line)
@@ -129,21 +131,37 @@ async def child(argv,timeout,guard=None,log_path=None):
   record('work_stage_end',outcome=outcome,elapsed_seconds=time.monotonic()-started,returncode=proc.returncode if proc else None)
 
 class Backend:
- def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None):
-  self.oracle=oracle;self.engine=engine;self.profile_path=profile_path;self.cpu=cpu;self.guard=guard;self.timeout=timeout;self.evidence=evidence;self.profile=Profile.parse(json.loads(profile_path.read_text()));self.metrics=Performance(self.profile)
+ def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None,persistent=False,engine_args=()):
+  self.oracle=oracle;self.engine=engine;self.profile_path=profile_path;self.cpu=cpu;self.guard=guard;self.timeout=timeout;self.evidence=evidence;self.profile=Profile.parse(json.loads(profile_path.read_text()));self.metrics=Performance(self.profile);self.service=None
+  if persistent:
+   from persistent_engine import PersistentEngine
+   argv=[self.engine,'--serve'] if cpu else [self.engine,'--run-gpu','--mode','worker','--allow-concurrent-miner',*map(str,engine_args)]
+   self.service=PersistentEngine(argv,guard,evidence,timeout)
  async def stage(self,name,argv,evidence):
   start=time.monotonic();outcome='completed'
   try:await child(argv,self.timeout,self.guard,evidence/(name+'.log') if evidence else None)
   except BaseException as e:outcome='cancelled' if isinstance(e,asyncio.CancelledError) else 'failed';raise
   finally:self.metrics.stage(name,time.monotonic()-start,outcome)
- async def batch(self,raw,root):
+ async def prepare(self,raw,root):
   evidence=self.evidence/root.name if self.evidence else None
   if evidence:
    evidence.mkdir(mode=0o700);(evidence/'context.json').write_text(json.dumps({'job_fingerprint':Job.parse(raw).fingerprint()}))
   jobfile=root/'notify.json';jobfile.write_text(json.dumps(raw));work=root/'work';hits=root/'hits.json';proofs=root/'proofs'
   await self.stage('prepare',[self.oracle,'work-prepare',jobfile,self.profile_path,work],evidence)
-  cmd=[self.engine,work/'work.bin',hits] if self.cpu else [self.engine,'--run-gpu','--mode','mine-batch','--work-input',work/'work.bin','--work-output',hits,'--allow-concurrent-miner']
-  await self.stage('GPU',cmd,evidence)
+  return {'raw':raw,'root':root,'work':work,'hits':hits,'proofs':proofs,'evidence':evidence}
+ async def finish(self,prepared,service=None):
+  raw,root,work,hits,proofs,evidence=(prepared[x] for x in ('raw','root','work','hits','proofs','evidence'))
+  if service:
+   start=time.monotonic();outcome='completed'
+   try:await service.compute(work/'work.bin',hits)
+   except BaseException as e:outcome='cancelled' if isinstance(e,asyncio.CancelledError) else 'failed';raise
+   finally:
+    elapsed=time.monotonic()-start;self.metrics.stage('GPU',elapsed,outcome)
+    if evidence:
+     with (evidence/'events.jsonl').open('a') as log:log.write(json.dumps({'event':'persistent_compute_end','outcome':outcome,'elapsed_seconds':elapsed,'wall_time':time.time()})+'\n')
+  else:
+   cmd=[self.engine,work/'work.bin',hits] if self.cpu else [self.engine,'--run-gpu','--mode','mine-batch','--work-input',work/'work.bin','--work-output',hits,'--allow-concurrent-miner']
+   await self.stage('GPU',cmd,evidence)
   result=json.loads(hits.read_text())
   if not isinstance(result.get('hits'),list):raise ChildFailure('Missing hit list')
   metadata=json.loads((work/'work.json').read_text());expected=(self.profile.m//len(self.profile.rows))*(self.profile.n//len(self.profile.columns))
@@ -157,6 +175,8 @@ class Backend:
   if not result['hits']:return []
   await self.stage('proofs',[self.oracle,'work-finalize',work,hits,proofs],evidence)
   result=json.loads((proofs/'proofs.json').read_text());return [((proofs/f'hit-{i}.proof.bin').read_bytes(),json.loads((proofs/f'hit-{i}-report.json').read_text())) for i in result['indices']]
+ async def batch(self,raw,root):return await self.finish(await self.prepare(raw,root))
+ def status(self,counts):emit('status',**counts.public(),performance=self.metrics.snapshot(),engine=self.service.describe() if self.service else None)
 async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_after_accepted=0):
  while not max_batches or counts.batches<max_batches:
   while session.raw is None:
@@ -186,7 +206,7 @@ async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_a
     changed.cancel();task.cancel()
     with contextlib.suppress(asyncio.CancelledError):await changed
     with contextlib.suppress(asyncio.CancelledError):await task
-async def run(host,port,credentials,profile,backend,workdir,*,duration=45,max_batches=0,enable_submit=False,reconnects=0,counts=None,stop_on_reject=False,stop_after_accepted=0,evidence=None):
+async def run(host,port,credentials,profile,backend,workdir,*,duration=45,max_batches=0,enable_submit=False,reconnects=0,counts=None,stop_on_reject=False,stop_after_accepted=0,evidence=None,pipeline=False):
  counts=counts or Counts();end=time.monotonic()+duration
  for attempt in range(reconnects+1):
   tasks=[];writer=None
@@ -198,7 +218,10 @@ async def run(host,port,credentials,profile,backend,workdir,*,duration=45,max_ba
    if reader_task in done:await reader_task
    if auth not in done:raise TimeoutError('Authorization deadline')
    await auth
-   worker=asyncio.create_task(mining(session,backend,workdir,counts,max_batches,enable_submit,stop_after_accepted));tasks.append(worker)
+   selected_mining=mining
+   if pipeline:
+    from miner_pipeline import mining as selected_mining
+   worker=asyncio.create_task(selected_mining(session,backend,workdir,counts,max_batches,enable_submit,stop_after_accepted));tasks.append(worker)
    done,_=await asyncio.wait([reader_task,worker],timeout=max(0,end-time.monotonic()),return_when=asyncio.FIRST_COMPLETED)
    if worker in done:await worker;return counts
    if reader_task in done:await reader_task
@@ -255,16 +278,25 @@ async def main_async(args):
  if args.workdir.stat().st_mode&0o077:raise ValueError('Use an owner-only work directory')
  args.evidence.mkdir(parents=True,exist_ok=True,mode=0o700)
  if args.evidence.stat().st_mode&0o077:raise ValueError('Use owner-only evidence directory')
- backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence)
+ ram=None
+ if args.pipeline:
+  from ram_workspace import RamWorkspace
+  ram=RamWorkspace(profile,args.ram_dir)
+  (args.evidence/'ram-workspace.json').write_text(json.dumps(ram.describe()))
+ backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence,persistent=args.pipeline,engine_args=['--paused-pid',args.paused_pid,'--paused-start-ticks',args.paused_start_ticks] if args.pipeline and not args.mock_cpu else [])
  counts=Counts();finished=False
  try:
-  await run(host,port,config,profile,backend,args.workdir,duration=args.duration,max_batches=args.max_batches,enable_submit=args.enable_submit,reconnects=0,stop_on_reject=not args.mock_cpu,stop_after_accepted=args.stop_after_accepted,counts=counts,evidence=args.evidence);finished=True
+  await run(host,port,config,profile,backend,ram.path if ram else args.workdir,duration=args.duration,max_batches=args.max_batches,enable_submit=args.enable_submit,reconnects=0,stop_on_reject=not args.mock_cpu,stop_after_accepted=args.stop_after_accepted,counts=counts,evidence=args.evidence,pipeline=args.pipeline);finished=True
  finally:
-  performance=backend.metrics.snapshot();performance['compute_backend']='CPU-reference' if args.mock_cpu else 'GPU'
+  if backend.service:await backend.service.close()
+  if ram:ram.cleanup()
+  performance=backend.metrics.snapshot();performance['compute_backend']='CPU-reference' if args.mock_cpu else 'GPU';performance['overlap_enabled']=args.pipeline
+  if backend.service:performance['persistent_engine']=backend.service.describe()
+  if ram:performance['RAM_workspace_cleaned']=not ram.path.exists()
   (args.evidence/'performance.json').write_text(json.dumps(performance,indent=2))
   emit('final',scope='mock' if args.mock_cpu else 'live-pool',outcome='finished' if finished else 'interrupted',**counts.public(),performance=performance)
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--measure-stability',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--pipeline',action='store_true');p.add_argument('--ram-dir',type=Path,default=Path('/dev/shm'));p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--measure-stability',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
  try:asyncio.run(main_async(args))
  except KeyboardInterrupt:raise SystemExit(130)
  except Exception as e:emit('failed',category=type(e).__name__);raise SystemExit(1)

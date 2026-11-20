@@ -1,0 +1,53 @@
+{
+  "CUDA_compiler": "13.0.88",
+  "targets": [
+    "sm86",
+    "sm89"
+  ],
+  "CUDA_compilation_passed": true,
+  "GPU_executed": false,
+  "GPU_context_or_buffer_reuse_actually_verified": false,
+  "Python_tests_passed": 52,
+  "native_paused_guard_test_passed": true,
+  "native_mapped_vs_copied_payload_match": true,
+  "single_CPU_worker_PID_verified": true,
+  "CPU_official_proof_loopback_integration": {
+    "pipeline_enabled": true,
+    "single_persistent_process_verified": true,
+    "RAM_workspace_cleaned": true,
+    "actual_CLI_entry_tested": true,
+    "full_wall_rate_accounting_checked": true,
+    "completed_fresh_candidate_groups": 8,
+    "loopback_pool_only": true,
+    "external_pool_contacted": false,
+    "GPU_executed": false,
+    "arithmetic_backend": "independent C++ CPU reference",
+    "official_verifier_checked_each_received_proof": true,
+    "fresh_unique_proof_hashes": 8,
+    "counts": {
+      "batches": 2,
+      "sent": 8,
+      "accepted": 6,
+      "rejected": 2,
+      "unknown": 0,
+      "stale": 0,
+      "reconnects": 0
+    },
+    "real_pool_share_accepted": false,
+    "GPU_live_worker_tested": false,
+    "temporary_work_cleaned": true
+  },
+  "math_source_sha256": {
+    "src/kernel.cu": "91e9721506867dda5872267c465b0ee2c33596f96b54d788641e5d163816c352",
+    "src/filter.cu": "68c58d976aed484e3ab15d1218088065b587ce6a38cf4980dd96bd647ea7cf72"
+  },
+  "measured_GPU_speedup": false,
+  "new_real_pool_share_accepted": false,
+  "steps_implemented": [
+    1,
+    2
+  ],
+  "step3_GPU_preparation_implemented": false,
+  "step4_local_checks_passed": true,
+  "step5_new_rig_test_done": false
+}

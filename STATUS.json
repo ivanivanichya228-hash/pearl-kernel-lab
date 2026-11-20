@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
+  "version": "0.9.0",
   "date": "2026-11-20",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -310,5 +310,49 @@
     "task": "RATE-STABILITY.md",
     "kernel_and_oracle_changed": false,
     "SRBMiner_equivalent_units_assumed": false
+  },
+  "five_step_progress": {
+    "1_persistent_GPU_process": "implemented and CUDA-compiled; GPU execution pending",
+    "2_RAM_and_overlap": "implemented, local lifecycle and official-proof integration passed",
+    "3_GPU_preparation": "not implemented",
+    "4_new_build": "CUDA compilation and CPU integration passed",
+    "5_new_rig_test": "not started"
+  },
+  "persistent_pipeline": {
+    "task": "PIPELINE-REBUILD.md",
+    "entry_flag": "--pipeline",
+    "RAM_filesystem": "tmpfs; no disk fallback",
+    "maximum_workspaces": 2,
+    "math_kernel_changed": false,
+    "hash_filter_changed": false,
+    "native_lifetime_changed": true,
+    "real_GPU_tested": false,
+    "speedup_measured": false,
+    "CPU_loopback_evidence": {
+      "pipeline_enabled": true,
+      "single_persistent_process_verified": true,
+      "RAM_workspace_cleaned": true,
+      "actual_CLI_entry_tested": true,
+      "full_wall_rate_accounting_checked": true,
+      "completed_fresh_candidate_groups": 8,
+      "loopback_pool_only": true,
+      "external_pool_contacted": false,
+      "GPU_executed": false,
+      "arithmetic_backend": "independent C++ CPU reference",
+      "official_verifier_checked_each_received_proof": true,
+      "fresh_unique_proof_hashes": 8,
+      "counts": {
+        "batches": 2,
+        "sent": 8,
+        "accepted": 6,
+        "rejected": 2,
+        "unknown": 0,
+        "stale": 0,
+        "reconnects": 0
+      },
+      "real_pool_share_accepted": false,
+      "GPU_live_worker_tested": false,
+      "temporary_work_cleaned": true
+    }
   }
 }

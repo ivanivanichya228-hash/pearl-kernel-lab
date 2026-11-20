@@ -36,26 +36,45 @@ void check_batch_pipeline(const std::string& path,const std::string& export_path
 }
 
 #include "mining_work.hpp"
+#include "mapped_work.hpp"
+#include "worker_protocol.hpp"
 namespace pearl_lab {
-void mine_batch(const std::string&path,const std::string&output){
- if(output.empty()||std::filesystem::exists(output))throw std::runtime_error("new hits output path required");
- const auto w=read_mining_work(path);const auto&p=w.shape;
- constexpr int slab=8192;const std::size_t maxgroups=std::size_t(std::min(slab,p.m)/16)*(std::min(slab,p.n)/p.proof_n);
- std::size_t free=0,totalmem=0;checked(cudaMemGetInfo(&free,&totalmem));
- if(w.a.size()+w.bt.size()+maxgroups*68+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
- Device<int8_t>a(w.a.size()),b(w.bt.size());Device<uint32_t>transcripts(maxgroups*16),indices(maxgroups),count(1);Stream stream;
- checked(cudaMemcpyAsync(a.p,w.a.data(),w.a.size(),cudaMemcpyHostToDevice,stream.s));checked(cudaMemcpyAsync(b.p,w.bt.data(),w.bt.size(),cudaMemcpyHostToDevice,stream.s));
- std::vector<MiningHit>hits;
- // Slabs cover FULL committed dimensions without changing the tested arithmetic kernel bounds.
- for(int r=0;r<p.m;r+=slab){for(int c=0;c<p.n;c+=slab){
-  Shape local{std::min(slab,p.m-r),std::min(slab,p.n-c),p.k,p.rank,p.proof_n};
-  checked(launch(a.p+std::size_t(r)*p.k,b.p+std::size_t(c)*p.k,transcripts.p,nullptr,local,256,stream.s,64));
-  checked(launch_jackpot_filter(transcripts.p,local.groups(),w.context,indices.p,count.p,uint32_t(local.groups()),stream.s));checked(cudaStreamSynchronize(stream.s));
-  uint32_t found=0;checked(cudaMemcpy(&found,count.p,4,cudaMemcpyDeviceToHost));if(found>local.groups()||hits.size()+found>4096)throw std::runtime_error("hit queue bound exceeded; no partial output");
-  std::vector<uint32_t>ix(found);if(found)checked(cudaMemcpy(ix.data(),indices.p,found*4,cudaMemcpyDeviceToHost));std::sort(ix.begin(),ix.end());
-  for(auto i:ix){if(i>=local.groups())throw std::runtime_error("invalid device hit index");MiningHit h{};h.index=global_group_index(i,r,c,local.n,p.n,p.proof_n);checked(cudaMemcpy(h.transcript,transcripts.p+std::size_t(i)*16,64,cudaMemcpyDeviceToHost));hits.push_back(h);}
- }}
- write_mining_hits(w,hits,output,true);
- std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"hits\":"<<hits.size()<<",\"target_modified\":false}\n";
+namespace {
+template<class T>struct Reusable{
+ T*p=nullptr;std::size_t capacity=0;
+ void clear(){if(p)checked(cudaFree(p));p=nullptr;capacity=0;}
+ void allocate(std::size_t n){checked(cudaMalloc(&p,n*sizeof(T)));capacity=n;}
+ ~Reusable(){if(p)cudaFree(p);}
+};
+struct MappingFence{cudaStream_t stream;~MappingFence(){cudaStreamSynchronize(stream);}};
+class MiningExecutor{
+ Reusable<int8_t>a,b;Reusable<uint32_t>transcripts,indices,count;Stream stream;uint64_t generation=0;
+ public:
+ uint64_t run(const std::string&path,const std::string&output){
+  if(output.empty()||std::filesystem::exists(output))throw std::runtime_error("new hits output path required");
+  const MappedMiningWork w(path);MappingFence fence{stream.s};const auto&p=w.info.shape;constexpr int slab=8192;
+  const std::size_t maxgroups=std::size_t(std::min(slab,p.m)/16)*(std::min(slab,p.n)/p.proof_n);
+  if(w.a_bytes>a.capacity||w.b_bytes>b.capacity||maxgroups*16>transcripts.capacity||maxgroups>indices.capacity||!count.p){
+   checked(cudaStreamSynchronize(stream.s));a.clear();b.clear();transcripts.clear();indices.clear();count.clear();
+   std::size_t free=0,totalmem=0;checked(cudaMemGetInfo(&free,&totalmem));
+   if(w.a_bytes+w.b_bytes+maxgroups*68+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
+   a.allocate(w.a_bytes);b.allocate(w.b_bytes);transcripts.allocate(maxgroups*16);indices.allocate(maxgroups);count.allocate(1);++generation;
+  }
+  checked(cudaMemcpyAsync(a.p,w.a,w.a_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaMemcpyAsync(b.p,w.bt,w.b_bytes,cudaMemcpyHostToDevice,stream.s));
+  std::vector<MiningHit>hits;
+  for(int r=0;r<p.m;r+=slab){for(int c=0;c<p.n;c+=slab){
+   Shape local{std::min(slab,p.m-r),std::min(slab,p.n-c),p.k,p.rank,p.proof_n};
+   checked(launch(a.p+std::size_t(r)*p.k,b.p+std::size_t(c)*p.k,transcripts.p,nullptr,local,256,stream.s,64));
+   checked(launch_jackpot_filter(transcripts.p,local.groups(),w.info.context,indices.p,count.p,uint32_t(local.groups()),stream.s));checked(cudaStreamSynchronize(stream.s));
+   uint32_t found=0;checked(cudaMemcpy(&found,count.p,4,cudaMemcpyDeviceToHost));if(found>local.groups()||hits.size()+found>4096)throw std::runtime_error("hit queue bound exceeded; no partial output");
+   std::vector<uint32_t>ix(found);if(found)checked(cudaMemcpy(ix.data(),indices.p,found*4,cudaMemcpyDeviceToHost));std::sort(ix.begin(),ix.end());
+   for(auto i:ix){if(i>=local.groups())throw std::runtime_error("invalid device hit index");MiningHit h{};h.index=global_group_index(i,r,c,local.n,p.n,p.proof_n);checked(cudaMemcpy(h.transcript,transcripts.p+std::size_t(i)*16,64,cudaMemcpyDeviceToHost));hits.push_back(h);}
+  }}
+  write_mining_hits(w.info,hits,output,true);
+  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"hits\":"<<hits.size()<<",\"target_modified\":false}\n";return generation;
+ }
+};
 }
+void mine_batch(const std::string&path,const std::string&output){MiningExecutor engine;engine.run(path,output);}
+void mining_worker(const std::function<void()>&guard){MiningExecutor engine;serve_mining_worker([&](const std::string&i,const std::string&o){guard();auto result=engine.run(i,o);guard();return result;},"GPU");}
 }
