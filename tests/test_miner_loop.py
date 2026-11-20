@@ -63,6 +63,21 @@ class Tests(unittest.IsolatedAsyncioTestCase):
    await m.child([sys.executable,'-c','print("SECOND")'],5,log_path=second/'prepare.log')
    self.assertEqual(log.read_text().strip(),'FIRST');self.assertEqual((second/'prepare.log').read_text().strip(),'SECOND')
    events=[json.loads(line) for line in (first/'events.jsonl').read_text().splitlines()];self.assertEqual(events[-1]['outcome'],'cancelled');self.assertGreater(events[-1]['elapsed_seconds'],0)
+ async def test_stop_after_first_accepted(self):
+  counts=m.Counts();backend=WaitingBackend()
+  async def batch(raw,path):return [(b'a',{}),(b'b',{})]
+  backend.batch=batch
+  class FakeSession:
+   raw=job();generation=1;changed=asyncio.Event()
+   book=m.JobBook()
+   async def submit(self,*args):counts.sent+=1;counts.accepted+=1
+  session=FakeSession();session.book.update(Job.parse(session.raw))
+  with tempfile.TemporaryDirectory() as path:await asyncio.wait_for(m.mining(session,backend,Path(path),counts,0,True,1),2)
+  self.assertEqual(counts.sent,1);self.assertEqual(counts.accepted,1)
+ async def test_extended_budget_requires_explicit_flags(self):
+  for duration,extended,stop in [(600,False,1),(600,True,0),(601,True,1),(float('nan'),True,1)]:
+   with self.assertRaises(ValueError):m.validate_runtime(duration,extended,stop)
+  self.assertEqual(m.validate_runtime(600,True,1),600)
  async def test_child_cancel_reaps_process(self):
   task=asyncio.create_task(m.child([sys.executable,'-c','import time;time.sleep(30)'],20));await asyncio.sleep(.1);task.cancel()
   with self.assertRaises(asyncio.CancelledError):await task

@@ -43,7 +43,9 @@ pub fn prepare(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{
    file.write_all(&bytes)?;
   }
  }
- timed("noise_and_work_write",started);let started=Instant::now();file.sync_all()?;timed("file_sync",started);timed("total",total);
+ timed("noise_and_work_write",started);let started=Instant::now();// All writes use unbuffered std::fs::File and write_all. The next process starts only
+ // after success; cancelled work is deleted. Crash-durable storage is unnecessary here.
+ file.flush()?;drop(file);timed("file_close",started);timed("total",total);
  fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true}))?)?;
  println!("Fresh real-target work prepared (no CPU GEMM / no network)");Ok(())
 }

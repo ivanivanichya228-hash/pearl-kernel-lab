@@ -1,5 +1,5 @@
 {
-  "version": "0.7.1",
+  "version": "0.7.2",
   "date": "2026-11-20",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -282,5 +282,15 @@
     "per_batch_exclusive_logs": true,
     "superseded_task": "LIVE-MINER.md previous short GPU pause",
     "current_task": "PREPARE-FIX.md CPU-only measure, no miner pause"
+  },
+  "temporary_work_fsync_removed": true,
+  "mint_cpu_prepare_evidence": "miner/MINT-CPU-PREPARE-RESULT.json",
+  "proposed_acceptance_test": {
+    "document": "ACCEPTANCE-TEST.md",
+    "status": "prepared; explicit user approval pending",
+    "client_budget_seconds": 540,
+    "maximum_main_miner_pause_seconds": 600,
+    "stop_after_first_accepted": true,
+    "real_pool_share_accepted": false
   }
 }

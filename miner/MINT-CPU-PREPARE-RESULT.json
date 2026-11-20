@@ -1,0 +1,23 @@
+{
+  "tested_commit": "cf2c68146067fa678e5bab073f09dff2acb7abde",
+  "source_report": "REPORT-CPU-PREPARE.md",
+  "scope": "Mint4090 CPU only, SRBMiner running",
+  "stages_seconds": {
+    "raw_random_matrices": 1.109795041,
+    "commitments": 1.570126225,
+    "raw_files": 0.365963693,
+    "noise_and_work_write": 1.671615371,
+    "file_sync": 4.067200969,
+    "total": 8.785146325
+  },
+  "wall_seconds": 9.013241675,
+  "GPU_used": false,
+  "live_pool_connection": false,
+  "miner_paused": false,
+  "before_hashrate_TH_s": 333.231,
+  "after_hashrate_TH_s": 332.986,
+  "before_accepted": 3158,
+  "after_accepted": 3164,
+  "rejected_before_and_after": 3,
+  "new_file_close_fix_measured_on_Mint": false
+}

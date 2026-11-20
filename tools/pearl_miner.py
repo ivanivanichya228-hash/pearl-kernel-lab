@@ -24,8 +24,8 @@ def read_credentials(path):
   if not isinstance(v,str) or not 1<=len(v)<=256 or any(ord(c)<32 for c in v):raise ValueError('Missing or invalid local credential')
  return data
 class Session:
- def __init__(self,reader,writer,wallet,worker,profile,counts):
-  self.reader=reader;self.writer=writer;self.wallet=wallet;self.worker=worker;self.profile=profile;self.counts=counts
+ def __init__(self,reader,writer,wallet,worker,profile,counts,evidence=None):
+  self.reader=reader;self.writer=writer;self.wallet=wallet;self.worker=worker;self.profile=profile;self.counts=counts;self.evidence=evidence
   self.book=JobBook();self.raw=None;self.generation=0;self.changed=asyncio.Event();self.authorized=asyncio.get_running_loop().create_future();self.pending={};self.stop_on_reject=False;self.next_id=2;self.closed=False;self.sent_hashes=set()
   # Reader shutdown can precede the authorize waiter; keep its error observable without orphan warnings.
   self.authorized.add_done_callback(lambda f: None if f.cancelled() else f.exception())
@@ -77,7 +77,14 @@ class Session:
   except (asyncio.TimeoutError,ConnectionError,OSError):
    self.pending.pop(mid,None);future.cancel();self.counts.unknown+=1;emit('share_unknown');return
   if reply.get('_unknown'):emit('share_unknown');return
-  if reply.get('result') is True and reply.get('error') is None:self.counts.accepted+=1;emit('share_accepted')
+  if reply.get('result') is True and reply.get('error') is None:
+   self.counts.accepted+=1
+   if self.evidence:
+    dest=self.evidence/'accepted';dest.mkdir(mode=0o700,exist_ok=True)
+    (dest/(digest+'.proof.bin')).write_bytes(proof)
+    (dest/(digest+'.report.json')).write_text(json.dumps(report))
+    (dest/(digest+'.receipt.json')).write_text(json.dumps({'request_id':mid,'result':True,'error':None,'job_fingerprint':job.fingerprint(),'proof_sha256':digest}))
+   emit('share_accepted',proof_sha256=digest)
   else:
    self.counts.rejected+=1;emit('share_rejected')
    if self.stop_on_reject:raise ProtocolError('Pool rejected first share; live experiment stopped')
@@ -131,7 +138,7 @@ class Backend:
   if not result['hits']:return []
   await child([self.oracle,'work-finalize',work,hits,proofs],self.timeout,self.guard,evidence/'proofs.log' if evidence else None)
   result=json.loads((proofs/'proofs.json').read_text());return [((proofs/f'hit-{i}.proof.bin').read_bytes(),json.loads((proofs/f'hit-{i}-report.json').read_text())) for i in result['indices']]
-async def mining(session,backend,workdir,counts,max_batches,enable_submit):
+async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_after_accepted=0):
  while not max_batches or counts.batches<max_batches:
   while session.raw is None:
    session.changed.clear()
@@ -149,26 +156,28 @@ async def mining(session,backend,workdir,counts,max_batches,enable_submit):
     proofs=await task;counts.batches+=1
     for proof,report in proofs:
      if generation!=session.generation:counts.stale+=1;break
-     if enable_submit:await session.submit(job,proof,report)
+     if enable_submit:
+      await session.submit(job,proof,report)
+      if stop_after_accepted and counts.accepted>=stop_after_accepted:return
      else:emit('qualified_share_not_sent')
     emit('status',**counts.public())
    finally:
     changed.cancel();task.cancel()
     with contextlib.suppress(asyncio.CancelledError):await changed
     with contextlib.suppress(asyncio.CancelledError):await task
-async def run(host,port,credentials,profile,backend,workdir,*,duration=45,max_batches=0,enable_submit=False,reconnects=0,counts=None,stop_on_reject=False):
+async def run(host,port,credentials,profile,backend,workdir,*,duration=45,max_batches=0,enable_submit=False,reconnects=0,counts=None,stop_on_reject=False,stop_after_accepted=0,evidence=None):
  counts=counts or Counts();end=time.monotonic()+duration
  for attempt in range(reconnects+1):
   tasks=[];writer=None
   try:
    reader,writer=await asyncio.wait_for(asyncio.open_connection(host,port,limit=MAX_LINE),8)
-   session=Session(reader,writer,credentials['wallet'],credentials['worker'],profile,counts);session.stop_on_reject=stop_on_reject;reader_task=asyncio.create_task(session.read());tasks.append(reader_task)
+   session=Session(reader,writer,credentials['wallet'],credentials['worker'],profile,counts,evidence=evidence);session.stop_on_reject=stop_on_reject;reader_task=asyncio.create_task(session.read());tasks.append(reader_task)
    auth=asyncio.create_task(session.authorize());tasks.append(auth)
    done,_=await asyncio.wait([auth,reader_task],timeout=min(15,max(0,end-time.monotonic())),return_when=asyncio.FIRST_COMPLETED)
    if reader_task in done:await reader_task
    if auth not in done:raise TimeoutError('Authorization deadline')
    await auth
-   worker=asyncio.create_task(mining(session,backend,workdir,counts,max_batches,enable_submit));tasks.append(worker)
+   worker=asyncio.create_task(mining(session,backend,workdir,counts,max_batches,enable_submit,stop_after_accepted));tasks.append(worker)
    done,_=await asyncio.wait([reader_task,worker],timeout=max(0,end-time.monotonic()),return_when=asyncio.FIRST_COMPLETED)
    if worker in done:await worker;return counts
    if reader_task in done:await reader_task
@@ -201,6 +210,11 @@ def gpu_guard(uuid,expected,pid,ticks):
     if 'srbminer' in (item/'comm').read_text().lower():raise ChildFailure('Another SRBMiner process exists')
    except (FileNotFoundError,ProcessLookupError):pass
  return check
+def validate_runtime(duration,extended,stop_after_accepted):
+ if not isinstance(duration,(int,float)) or not 1<=duration<=600:raise ValueError('Invalid duration')
+ if stop_after_accepted not in (0,1):raise ValueError('Stop target must be0 or1')
+ if duration>50 and (not extended or stop_after_accepted!=1):raise ValueError('Longer test needs explicit extended-test and stop after first accepted share')
+ return duration
 async def main_async(args):
  config=read_credentials(args.config);profile_path=Path(config['profile']).resolve();profile=Profile.parse(json.loads(profile_path.read_text()));host=config['host'];port=config['port']
  if type(port) is not int or not 1<=port<=65535:raise ValueError('Invalid port')
@@ -212,17 +226,20 @@ async def main_async(args):
    raise ValueError('Use the bounded mine-batch check under external sanitizer/controller, not a persistent sanitizer wrapper')
  guard=None if args.mock_cpu else gpu_guard(args.gpu,args.expected_power_limit_w,args.paused_pid,args.paused_start_ticks)
  if guard:guard()
- if not 1<=args.duration<=50 or not 0<=args.max_batches<=100:raise ValueError('Alpha runtime budget is1..50s, max batches0..100')
+ validate_runtime(args.duration,args.extended_test,args.stop_after_accepted)
+ if not 0<=args.max_batches<=100:raise ValueError('Invalid max batches')
  if args.gpu:os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID';os.environ['CUDA_VISIBLE_DEVICES']=args.gpu
  args.workdir.mkdir(parents=True,exist_ok=True,mode=0o700)
  if args.workdir.stat().st_mode&0o077:raise ValueError('Use an owner-only work directory')
  args.evidence.mkdir(parents=True,exist_ok=True,mode=0o700)
  if args.evidence.stat().st_mode&0o077:raise ValueError('Use owner-only evidence directory')
  backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence)
- counts=await run(host,port,config,profile,backend,args.workdir,duration=args.duration,max_batches=args.max_batches,enable_submit=args.enable_submit,reconnects=0,stop_on_reject=not args.mock_cpu)
- emit('final',scope='mock' if args.mock_cpu else 'live-pool',**counts.public())
+ counts=Counts();finished=False
+ try:
+  await run(host,port,config,profile,backend,args.workdir,duration=args.duration,max_batches=args.max_batches,enable_submit=args.enable_submit,reconnects=0,stop_on_reject=not args.mock_cpu,stop_after_accepted=args.stop_after_accepted,counts=counts,evidence=args.evidence);finished=True
+ finally:emit('final',scope='mock' if args.mock_cpu else 'live-pool',outcome='finished' if finished else 'interrupted',**counts.public())
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
  try:asyncio.run(main_async(args))
  except KeyboardInterrupt:raise SystemExit(130)
  except Exception as e:emit('failed',category=type(e).__name__);raise SystemExit(1)

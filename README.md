@@ -1,3 +1,5 @@
+Latest: forced disk sync removed for disposable work; [ACCEPTANCE-TEST.md](ACCEPTANCE-TEST.md) prepares one bounded test up to first accepted share. Extended pause requires user approval; no automatic GPU run.
+
 Current fix: [PREPARE-FIX.md](PREPARE-FIX.md). CPU preparation optimized and batch logs preserved. No accepted real share; do not rerun the old30s GPU task.
 
 Current runnable alpha: [LIVE-MINER.md](LIVE-MINER.md). Network/job/GPU/proof/submit loop implemented; local integration passed. New GPU scheduler and real-pool acceptance remain untested. No SRBMiner speedup claim.

@@ -37,6 +37,8 @@ async def test(args):
    records=[json.loads(line) for line in stdout.decode().splitlines()];final=next(r for r in records if r.get('event')=='final');assert final['scope']=='mock';counts=m.Counts(**{k:final[k] for k in vars(m.Counts())})
    assert len(list((tmp/'evidence').glob('*/GPU.log')))==2 and len(list((tmp/'evidence').glob('*/proofs.log')))==2
    assert len(list((tmp/'evidence').glob('*/events.jsonl')))==2
+   assert len(list((tmp/'evidence/accepted').glob('*.proof.bin')))==6
+   assert len(list((tmp/'evidence/accepted').glob('*.receipt.json')))==6
 
   finally:
    server.close();await server.wait_closed()
