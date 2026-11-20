@@ -1,0 +1,7 @@
+{
+  "host": "pearl-eu2.luckypool.io",
+  "port": 3360,
+  "wallet": "",
+  "worker": "pearl-alpha-4090",
+  "profile": "/ABSOLUTE/PATH/miner/luckypool-profile.json"
+}

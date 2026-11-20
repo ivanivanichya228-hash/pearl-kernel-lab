@@ -8,11 +8,11 @@ use primitive_types::U256;
 use pearl_blake3::{MerkleTree,pad_to_chunk_boundary};
 use zk_pow::{api::proof::{PublicProofParams,SeedDerivation},circuit::pearl_noise::compute_noise_for_indices,ffi::plain_proof::{PlainProof,MatrixMerkleProof}};
 use super::pool;
-fn trees(job:&Value,profile:&Value,a:&[u8],bt:&[u8])->Result<(MerkleTree,MerkleTree,PublicProofParams)>{
+pub(super) fn trees(job:&Value,profile:&Value,a:&[u8],bt:&[u8])->Result<(MerkleTree,MerkleTree,PublicProofParams)>{
  let (_,header,_,_)=pool::context(job)?;let cfg=pool::config(profile)?;
  let m=pool::uint(profile,"m")?;let n=pool::uint(profile,"n")?;let k=pool::uint(profile,"k")?;
  ensure!(a.len()==m*k&&bt.len()==n*k,"raw input length");
- ensure!(m<=128&&n<=128&&k<=8192&&m*n*k<=(1<<26),"bounded offline batch only");
+ ensure!(m<=131072&&n<=131072&&k<=8192&&(m+n)*k<=(1usize<<31),"work allocation bounds");
  let h=cfg.rows_pattern.size() as usize;let w=cfg.cols_pattern.size() as usize;
  ensure!(m%h==0&&n%w==0&&cfg.rows_pattern.to_list()==(0..h as u32).collect::<Vec<_>>()&&cfg.cols_pattern.to_list()==(0..w as u32).collect::<Vec<_>>(),"contiguous complete tiles required");
  let mut public=PublicProofParams{block_header:header,seed_derivation:SeedDerivation::Salted,mining_config:cfg,
@@ -21,7 +21,7 @@ fn trees(job:&Value,profile:&Value,a:&[u8],bt:&[u8])->Result<(MerkleTree,MerkleT
  let at=MerkleTree::new(&pad_to_chunk_boundary(a),key);let btree=MerkleTree::new(&pad_to_chunk_boundary(bt),key);
  public.hash_a=at.root();public.hash_b=btree.root();Ok((at,btree,public))
 }
-fn proof_for(index:usize,profile:&Value,at:&MerkleTree,bt:&MerkleTree)->Result<PlainProof>{
+pub(super) fn proof_for(index:usize,profile:&Value,at:&MerkleTree,bt:&MerkleTree)->Result<PlainProof>{
  let cfg=pool::config(profile)?;let m=pool::uint(profile,"m")?;let n=pool::uint(profile,"n")?;let k=pool::uint(profile,"k")?;
  let h=cfg.rows_pattern.size() as usize;let w=cfg.cols_pattern.size() as usize;ensure!(index<(m/h)*(n/w),"hit index out of range");
  let rows:Vec<usize>=((index/(n/w))*h..(index/(n/w)+1)*h).collect();let cols:Vec<usize>=((index%(n/w))*w..(index%(n/w)+1)*w).collect();
@@ -29,7 +29,7 @@ fn proof_for(index:usize,profile:&Value,at:&MerkleTree,bt:&MerkleTree)->Result<P
   a:MatrixMerkleProof{proof:at.get_multileaf_proof(&MerkleTree::compute_leaf_indices_from_rows(&rows,(m,k))),row_indices:rows},
   bt:MatrixMerkleProof{proof:bt.get_multileaf_proof(&MerkleTree::compute_leaf_indices_from_rows(&cols,(n,k))),row_indices:cols},moe:None})
 }
-fn batch_id(job:&Value,at:&MerkleTree,bt:&MerkleTree)->Result<String>{let (_,_,_,fp)=pool::context(job)?;let mut b=b"pearl-batch-v1\0".to_vec();b.extend(pool::unhex(&fp)?);b.extend(at.root());b.extend(bt.root());Ok(pool::hex(&Sha256::digest(&b)))}
+pub(super) fn batch_id(job:&Value,at:&MerkleTree,bt:&MerkleTree)->Result<String>{let (_,_,_,fp)=pool::context(job)?;let mut b=b"pearl-batch-v1\0".to_vec();b.extend(pool::unhex(&fp)?);b.extend(at.root());b.extend(bt.root());Ok(pool::hex(&Sha256::digest(&b)))}
 pub fn prepare(job_path:&Path,profile_path:&Path,out:&Path,synthetic_mid:bool)->Result<()>{
  ensure!(!out.exists(),"output directory exists");let mut job=pool::load(job_path)?;let profile=pool::load(profile_path)?;let cfg=pool::config(&profile)?;
  let (m,n,k)=(pool::uint(&profile,"m")?,pool::uint(&profile,"n")?,pool::uint(&profile,"k")?);let h=cfg.rows_pattern.size() as usize;let w=cfg.cols_pattern.size() as usize;

@@ -14,5 +14,8 @@ class PipelineGuard(unittest.TestCase):
   with self.assertRaises(ValueError):g.validate_memcheck(log(FILTER,{**PIPE,'hits':0}),0,'pipeline-check')
  def test_no_ordering(self):
   with self.assertRaises(ValueError):g.validate_memcheck(log(FILTER,{**PIPE,'ordered_stream':False}),0,'pipeline-check')
+ def test_real_work_mode(self):g.validate_memcheck(log({'phase':'mining_batch','groups':4,'hits':4,'target_modified':False}),0,'mine-batch')
+ def test_work_target_changed(self):
+  with self.assertRaises(ValueError):g.validate_memcheck(log({'phase':'mining_batch','groups':4,'hits':4,'target_modified':True}),0,'mine-batch')
  def test_budget(self):self.assertEqual(g.validation_budget(2,0,1,50,'pipeline-check',True),0)
 if __name__=='__main__':unittest.main()

@@ -1,5 +1,5 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "date": "2026-11-20",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -206,7 +206,7 @@
   },
   "real_pool_share_accepted": false,
   "complete_miner": false,
-  "current_revision_GPU_executed": true,
+  "current_revision_GPU_executed": false,
   "offline_batch_pipeline": {
     "official_proof_and_exact_target_passed": true,
     "candidates": 4,
@@ -240,5 +240,36 @@
     "rig_reported_leaked_bytes": 0,
     "real_pool_share_accepted": false,
     "SRBMiner_speedup_measured": false
+  },
+  "live_miner_alpha": {
+    "entry": "tools/pearl_miner.py",
+    "network_loop_implemented": true,
+    "full_matrix_slab_scheduler_compiled": true,
+    "GPU_live_worker_tested": false,
+    "real_pool_share_accepted": false,
+    "SRBMiner_speedup_measured": false,
+    "bounded_alpha_seconds": 50,
+    "loopback_result": {
+      "actual_CLI_entry_tested": true,
+      "loopback_pool_only": true,
+      "external_pool_contacted": false,
+      "GPU_executed": false,
+      "arithmetic_backend": "independent C++ CPU reference",
+      "official_verifier_checked_each_received_proof": true,
+      "fresh_unique_proof_hashes": 8,
+      "counts": {
+        "batches": 2,
+        "sent": 8,
+        "accepted": 6,
+        "rejected": 2,
+        "unknown": 0,
+        "stale": 0,
+        "reconnects": 0
+      },
+      "real_pool_share_accepted": false,
+      "GPU_live_worker_tested": false,
+      "temporary_work_cleaned": true
+    },
+    "python_tests_passed": 38
   }
 }

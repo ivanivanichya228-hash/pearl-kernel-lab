@@ -1,3 +1,5 @@
+Current runnable alpha: [LIVE-MINER.md](LIVE-MINER.md). Network/job/GPU/proof/submit loop implemented; local integration passed. New GPU scheduler and real-pool acceptance remain untested. No SRBMiner speedup claim.
+
 Current stage: [BATCH-PIPELINE.md](BATCH-PIPELINE.md) — offline batch → GPU hit indices → official plain proof. GPU pipeline passed on Mint4090; both actual GPU-derived proofs passed the official verifier and synthetic target. See pool/GPU-PIPELINE-RESULT.json. No live share sent.
 
 > Revision0.5.0: [LUCKYPOOL-ADAPTER.md](LUCKYPOOL-ADAPTER.md): real-job offline adapter and new GPU hash filter. CPU tests passed; new GPU stage not tested. Older tasks are historical.

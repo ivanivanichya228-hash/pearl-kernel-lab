@@ -1,6 +1,7 @@
 //! Synthetic CPU compatibility oracle. Calls the unmodified pinned upstream verifier.
 mod pool;
 mod pipeline;
+mod work;
 use anyhow::{Result,ensure,bail};
 use std::{fs,path::Path};
 use rand::{SeedableRng,rngs::StdRng};
@@ -37,6 +38,8 @@ fn verify_outputs(out:&Path,file:&Path)->Result<()> {
 }
 fn main()->Result<()> {
  let args:Vec<String>=std::env::args().collect();
+ if args.len()==5 && args[1]=="work-prepare" {return work::prepare(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
+ if args.len()==5 && args[1]=="work-finalize" {return work::finalize(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==6 && args[1]=="batch-prepare" {ensure!(args[5]=="actual" || args[5]=="synthetic-mid", "batch target mode must be actual or synthetic-mid");
         return pipeline::prepare(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]),args[5]=="synthetic-mid");}
  if args.len()==5 && args[1]=="batch-finalize" {return pipeline::finalize(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}

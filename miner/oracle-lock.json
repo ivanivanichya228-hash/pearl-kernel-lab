@@ -1,0 +1,24 @@
+{
+  "archive": "oracle-linux-x86_64.gz",
+  "archive_size": 703060,
+  "archive_sha256": "91d30b488b903810e955c37f3267f35f5925204c6627083d2786a57c62b953ad",
+  "binary_size": 1982856,
+  "binary_sha256": "4e430efda422c0137709977c47789fcafd7cf261cec5591b1b304e9ad6525587",
+  "rustc": "1.90.0",
+  "target": "x86_64-unknown-linux-gnu",
+  "official_upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9",
+  "sources_sha256": {
+    "proof-oracle/Cargo.toml": "46cbc0ad5971483213d9d26a4fc73196ee6be0208b41f8fdfb2084e28df1c976",
+    "proof-oracle/Cargo.lock": "1cda495b6ee135b89d003a1d7eb5337442bda2aa5669d368db14e38b4a2744e3",
+    "proof-oracle/src/main.rs": "1481ef4d98f286144153621e4d0578a2badddb6c198e637df72ae9bffdd4c2da",
+    "proof-oracle/src/pool.rs": "a18c49cc130611af8e6373657f682041abf5ac3c86c1862d2bb3277f1d6c70da",
+    "proof-oracle/src/pipeline.rs": "e0804198f14e56f5be65e0c4d6fc7a70fc7a51b51a870ccf05a4f06fb856e65b",
+    "proof-oracle/src/work.rs": "5218e847ad2afcf34769e3a92c422075f712f028a75f04375bf306d7dcf2bd38"
+  },
+  "commands": [
+    "work-prepare",
+    "work-finalize",
+    "pool-verify"
+  ],
+  "note": "No GPU/network code. Build source is included; this is the official pinned verifier bridge, not an official upstream binary distribution."
+}
