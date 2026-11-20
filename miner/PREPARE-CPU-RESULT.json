@@ -1,0 +1,47 @@
+{
+  "scope": "independent non-mining CPU host; no GPU, no external pool",
+  "profile": {
+    "m": 131072,
+    "n": 131072,
+    "k": 4096,
+    "rank": 256
+  },
+  "rayon_threads": 4,
+  "baseline": {
+    "raw_random_matrices": 6.622491425,
+    "commitments": 1.257102183,
+    "raw_files": 0.264043826,
+    "noise_and_work_write": 4.796005557,
+    "file_sync": 0.076775095,
+    "total": 13.016795454
+  },
+  "bulk_RNG_only": {
+    "raw_random_matrices": 2.305900067,
+    "commitments": 1.100741561,
+    "raw_files": 0.145620342,
+    "noise_and_work_write": 4.7957645620000005,
+    "file_sync": 0.074062467,
+    "total": 8.422549002
+  },
+  "bulk_RNG_and_parallel_noise": {
+    "raw_random_matrices": 2.358914135,
+    "commitments": 1.10668394,
+    "raw_files": 0.206015908,
+    "noise_and_work_write": 1.134298872,
+    "file_sync": 0.099340699,
+    "total": 4.90582061
+  },
+  "before_after_note": "Single full-size run per variant on the same host; raw matrices are freshly randomized. No extrapolation to Mint CPU/GPU speed.",
+  "math_kernel_changed": false,
+  "pool_target_changed": false,
+  "real_pool_share_accepted": false,
+  "GPU_executed": false,
+  "archived_target_model": {
+    "assumption": "uniform independent jackpot hashes; archived target only, not current pool job",
+    "groups_per_full_batch": 67108864,
+    "expected_successes_per_batch": 0.00546125,
+    "expected_batches_until_one_share_approx": 183.10826276035706,
+    "probability_of_share_after_6_batches": 0.03223646154437392,
+    "not_a_duration_forecast": true
+  }
+}

@@ -1,5 +1,8 @@
 # Pearl miner alpha 0.7.0 — runnable network/GPU loop
 
+SUPERSEDED TEST TASK: see PREPARE-FIX.md before running anything. The previous30s run
+finished zero batches; do not repeat or extend that GPU pause automatically.
+
 This is an experimental runnable miner, not an SRBMiner-speed replacement claim.
 No real LuckyPool share has yet been sent or accepted by this build. Do not interpret local
 mock-pool acceptance or the earlier synthetic GPU proofs as real mining revenue.

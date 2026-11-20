@@ -50,6 +50,19 @@ class Tests(unittest.IsolatedAsyncioTestCase):
    p=Path(path)/'credentials';p.write_text('{"wallet":"fake","worker":"test"}');p.chmod(0o644)
    with self.assertRaises(ValueError):m.read_credentials(p)
    p.chmod(0o600);self.assertEqual(m.read_credentials(p)['worker'],'test')
+ async def test_cancelled_stage_log_survives_next_batch(self):
+  with tempfile.TemporaryDirectory() as path:
+   first=Path(path)/'batch-first';second=Path(path)/'batch-second';first.mkdir();second.mkdir();log=first/'prepare.log'
+   task=asyncio.create_task(m.child([sys.executable,'-u','-c','import time;print("FIRST",flush=True);time.sleep(30)'],20,log_path=log))
+   for _ in range(100):
+    if log.exists() and 'FIRST' in log.read_text():break
+    await asyncio.sleep(.01)
+   else:self.fail('child did not start')
+   task.cancel()
+   with self.assertRaises(asyncio.CancelledError):await task
+   await m.child([sys.executable,'-c','print("SECOND")'],5,log_path=second/'prepare.log')
+   self.assertEqual(log.read_text().strip(),'FIRST');self.assertEqual((second/'prepare.log').read_text().strip(),'SECOND')
+   events=[json.loads(line) for line in (first/'events.jsonl').read_text().splitlines()];self.assertEqual(events[-1]['outcome'],'cancelled');self.assertGreater(events[-1]['elapsed_seconds'],0)
  async def test_child_cancel_reaps_process(self):
   task=asyncio.create_task(m.child([sys.executable,'-c','import time;time.sleep(30)'],20));await asyncio.sleep(.1);task.cancel()
   with self.assertRaises(asyncio.CancelledError):await task

@@ -90,33 +90,46 @@ async def stop_child(proc):
    await proc.wait()
 async def child(argv,timeout,guard=None,log_path=None):
  if guard:guard()
- env=os.environ.copy();env.setdefault('RAYON_NUM_THREADS','4');proc=None;output=None
+ env=os.environ.copy();env.setdefault('RAYON_NUM_THREADS','4');proc=None;output=None;outcome='running';started=time.monotonic()
+ def record(event,**fields):
+  if log_path:
+   row={'event':event,'stage':log_path.stem,'batch':log_path.parent.name,'wall_time':time.time(),'monotonic':time.monotonic(),**fields}
+   with (log_path.parent/'events.jsonl').open('a') as trace:trace.write(json.dumps(row)+'\n')
+   emit(event,stage=log_path.stem,batch=log_path.parent.name,**fields)
+ record('work_stage_start')
  try:
-  if log_path:output=log_path.open('wb')
+  if log_path:output=log_path.open('xb')
   proc=await asyncio.create_subprocess_exec(*map(str,argv),stdout=output or asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.STDOUT if output else asyncio.subprocess.DEVNULL,start_new_session=True,env=env)
-  start=time.monotonic()
   while proc.returncode is None:
    if guard:guard()
-   if time.monotonic()-start>timeout:raise ChildFailure('Work stage exceeded deadline')
+   if time.monotonic()-started>timeout:outcome='deadline';raise ChildFailure('Work stage exceeded deadline')
    try:await asyncio.wait_for(proc.wait(),.2)
    except asyncio.TimeoutError:pass
-  if proc.returncode:raise ChildFailure('Work stage failed; no share sent')
+  if proc.returncode:outcome='child_failed';raise ChildFailure('Work stage failed; no share sent')
+  outcome='completed'
+ except BaseException as e:
+  if outcome=='running':outcome='cancelled' if isinstance(e,asyncio.CancelledError) else type(e).__name__
+  raise
  finally:
   if proc:await stop_child(proc)
   if output:output.close()
+  record('work_stage_end',outcome=outcome,elapsed_seconds=time.monotonic()-started,returncode=proc.returncode if proc else None)
 
 class Backend:
  def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None):
   self.oracle=oracle;self.engine=engine;self.profile_path=profile_path;self.cpu=cpu;self.guard=guard;self.timeout=timeout;self.evidence=evidence
  async def batch(self,raw,root):
+  evidence=self.evidence/root.name if self.evidence else None
+  if evidence:
+   evidence.mkdir(mode=0o700);(evidence/'context.json').write_text(json.dumps({'job_fingerprint':Job.parse(raw).fingerprint()}))
   jobfile=root/'notify.json';jobfile.write_text(json.dumps(raw));work=root/'work';hits=root/'hits.json';proofs=root/'proofs'
-  await child([self.oracle,'work-prepare',jobfile,self.profile_path,work],self.timeout,self.guard,self.evidence/'prepare.log' if self.evidence else None)
+  await child([self.oracle,'work-prepare',jobfile,self.profile_path,work],self.timeout,self.guard,evidence/'prepare.log' if evidence else None)
   cmd=[self.engine,work/'work.bin',hits] if self.cpu else [self.engine,'--run-gpu','--mode','mine-batch','--work-input',work/'work.bin','--work-output',hits,'--allow-concurrent-miner']
-  await child(cmd,self.timeout,self.guard,self.evidence/'GPU.log' if self.evidence else None)
+  await child(cmd,self.timeout,self.guard,evidence/'GPU.log' if evidence else None)
   result=json.loads(hits.read_text())
   if not isinstance(result.get('hits'),list):raise ChildFailure('Missing hit list')
   if not result['hits']:return []
-  await child([self.oracle,'work-finalize',work,hits,proofs],self.timeout,self.guard,self.evidence/'proofs.log' if self.evidence else None)
+  await child([self.oracle,'work-finalize',work,hits,proofs],self.timeout,self.guard,evidence/'proofs.log' if evidence else None)
   result=json.loads((proofs/'proofs.json').read_text());return [((proofs/f'hit-{i}.proof.bin').read_bytes(),json.loads((proofs/f'hit-{i}-report.json').read_text())) for i in result['indices']]
 async def mining(session,backend,workdir,counts,max_batches,enable_submit):
  while not max_batches or counts.batches<max_batches:

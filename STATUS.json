@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0",
+  "version": "0.7.1",
   "date": "2026-11-20",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -271,5 +271,16 @@
       "temporary_work_cleaned": true
     },
     "python_tests_passed": 38
+  },
+  "prepare_fix": {
+    "evidence": "miner/PREPARE-CPU-RESULT.json",
+    "measured_here_CPU_seconds_before": 13.016795454,
+    "measured_here_CPU_seconds_after": 4.90582061,
+    "GPU_used": false,
+    "real_pool_share_accepted": false,
+    "noise_byte_identity_Rust_tests_passed": true,
+    "per_batch_exclusive_logs": true,
+    "superseded_task": "LIVE-MINER.md previous short GPU pause",
+    "current_task": "PREPARE-FIX.md CPU-only measure, no miner pause"
   }
 }

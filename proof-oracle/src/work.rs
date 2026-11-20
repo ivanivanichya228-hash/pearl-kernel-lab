@@ -1,32 +1,49 @@
 //! Real-target, freshly randomized work. No fixture goldens, no network code.
 use anyhow::{Result,ensure};
-use std::{fs,io::Write,path::Path,collections::BTreeSet};
-use rand::{SeedableRng,Rng,rngs::StdRng};
+use std::{fs,io::Write,path::Path,collections::BTreeSet,time::Instant};
+fn timed(stage:&str,start:Instant){eprintln!("{}",json!({"phase":"prepare_timing","stage":stage,"elapsed_seconds":start.elapsed().as_secs_f64()}));}
+use rand::{SeedableRng,RngCore,rngs::StdRng};
 use serde_json::json;
-use zk_pow::{circuit::pearl_noise::compute_noise_for_indices,api::sanity_checks::penalized_target_bound};
+use rayon::prelude::*;
+use zk_pow::{circuit::pearl_noise::{generate_uniform_random_matrix,generate_permutation_matrix},api::sanity_checks::penalized_target_bound};
 use super::{pool,pipeline};
+// Every lower seven-bit pattern is equiprobable; [-64,63] is canonical signed INT7.
+// One CSPRNG fill amortizes RNG/distribution calls; no fixed seeds or repeated batches.
+fn random_matrix(len:usize,rng:&mut impl RngCore)->Vec<u8>{let mut data=vec![0u8;len];rng.fill_bytes(&mut data);for x in &mut data{*x=(((*x&127) as i16)-64) as i8 as u8;}data}
+fn noisy_chunk(raw:&[u8],first:usize,k:usize,rank:usize,seed:&[u8;32],key:&[u8;32],perm:&[[u32;2]])->Result<Vec<u8>>{
+ let mut data=vec![0u8;raw.len()];
+ data.par_chunks_mut(k).enumerate().try_for_each(|(local,row)|->Result<()>{
+  let uniform=generate_uniform_random_matrix(seed,key,&[first+local],rank);let v=&uniform[0];
+  for (c,x) in row.iter_mut().enumerate(){let [a,b]=perm[c];let sum=raw[local*k+c] as i8 as i32+v[a as usize] as i32-v[b as usize] as i32;ensure!((-127..=127).contains(&sum),"noise sum out of range");*x=sum as i8 as u8;}Ok(())
+ })?;Ok(data)
+}
 pub fn prepare(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{
  ensure!(!out.exists(),"new work directory required");let job=pool::load(job_path)?;let profile=pool::load(profile_path)?;let cfg=pool::config(&profile)?;
  let (m,n,k)=(pool::uint(&profile,"m")?,pool::uint(&profile,"n")?,pool::uint(&profile,"k")?);
  ensure!(m<=131072&&n<=131072&&k<=8192&&(m+n)*k<=(1usize<<31),"work memory bounds");
  let (_,_,target,fp)=pool::context(&job)?;let bound=penalized_target_bound(target,&cfg).ok_or_else(||anyhow::anyhow!("invalid target scaling"))?;
- let mut rng=StdRng::from_os_rng();let a:Vec<u8>=(0..m*k).map(|_|rng.random_range(-64i8..=64) as u8).collect();let bt:Vec<u8>=(0..n*k).map(|_|rng.random_range(-64i8..=64) as u8).collect();
+ let total=Instant::now();let started=Instant::now();
+ let mut rng=StdRng::from_os_rng();
+ let a=random_matrix(m*k,&mut rng);let bt=random_matrix(n*k,&mut rng);
+ timed("raw_random_matrices",started);let started=Instant::now();
  let (at,btree,public)=pipeline::trees(&job,&profile,&a,&bt)?;let id=pipeline::batch_id(&job,&at,&btree)?;let seeds=public.commitment_hash(public.job_key());
+ timed("commitments",started);let started=Instant::now();
  fs::create_dir(out)?;fs::write(out.join("job.json"),serde_json::to_vec(&job)?)?;fs::write(out.join("profile.json"),serde_json::to_vec(&profile)?)?;
  fs::write(out.join("raw-a.bin"),&a)?;fs::write(out.join("raw-bt.bin"),&bt)?;
+ timed("raw_files",started);
  let mut file=fs::File::create(out.join("work.bin"))?;file.write_all(b"PRLWORK1")?;
  for x in [m,n,k,cfg.rank as usize,cfg.cols_pattern.size() as usize]{file.write_all(&(x as u32).to_le_bytes())?;}
  file.write_all(&pool::unhex(&fp)?)?;file.write_all(&pool::unhex(&id)?)?;file.write_all(&seeds.1)?;let mut bound_bytes=[0u8;32];bound.to_little_endian(&mut bound_bytes);file.write_all(&bound_bytes)?;
  // Chunk noise generation: whole commitments, global row indices; no giant noise matrix.
+ let started=Instant::now();
  for (raw,rows,is_a) in [(&a,m,true),(&bt,n,false)]{
+  let mut label=[0u8;32];label[..8].copy_from_slice(if is_a{b"A_tensor"}else{b"B_tensor"});let key=if is_a{seeds.1}else{seeds.0};let perm=generate_permutation_matrix(&label,&key,k,cfg.rank as usize);
   for first in (0..rows).step_by(1024){let indices=(first..rows.min(first+1024)).collect::<Vec<_>>();
-   let noise=if is_a{compute_noise_for_indices(k,cfg.rank as usize,seeds,&indices,&[])}else{compute_noise_for_indices(k,cfg.rank as usize,seeds,&[],&indices)};
-   let additions=if is_a{noise.a}else{noise.b};let mut bytes=Vec::with_capacity(indices.len()*k);
-   for (local,&global) in indices.iter().enumerate(){for c in 0..k{let x=raw[global*k+c] as i8 as i32+additions[local][c] as i32;ensure!((-127..=127).contains(&x),"noise sum out of range");bytes.push(x as i8 as u8);}}
+   let bytes=noisy_chunk(&raw[first*k..(first+indices.len())*k],first,k,cfg.rank as usize,&label,&key,&perm)?;
    file.write_all(&bytes)?;
   }
  }
- file.sync_all()?;
+ timed("noise_and_work_write",started);let started=Instant::now();file.sync_all()?;timed("file_sync",started);timed("total",total);
  fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true}))?)?;
  println!("Fresh real-target work prepared (no CPU GEMM / no network)");Ok(())
 }
@@ -39,4 +56,17 @@ pub fn finalize(batch:&Path,hits_path:&Path,out:&Path)->Result<()>{
   ensure!(report["share_target_passed"]==true&&report["jackpot"]==h["transcript"],"GPU hit failed official proof/target/transcript check");ready.push((index,proof,report));}
  fs::create_dir(out)?;let mut indexes=Vec::new();for (index,proof,report) in ready{fs::write(out.join(format!("hit-{index}.proof.bin")),bincode::serialize(&proof)?)?;fs::write(out.join(format!("hit-{index}-report.json")),serde_json::to_vec(&report)?)?;indexes.push(index);}
  fs::write(out.join("proofs.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"indices":indexes,"target_modified":false,"official_checks_passed":true}))?)?;Ok(())
+}
+
+#[cfg(test)]
+mod tests{
+ use super::*;
+ #[test]fn noise_is_byte_identical_to_official(){
+  use zk_pow::circuit::pearl_noise::compute_noise_for_indices;
+  for rank in [128,256]{let k=4096;let first=1008;let rows=32;let raw=vec![0u8;rows*k];let seeds=([17u8;32],[39u8;32]);let indices=(first..first+rows).collect::<Vec<_>>();
+   let expected=compute_noise_for_indices(k,rank,seeds,&indices,&indices);
+   for is_a in [true,false]{let mut label=[0u8;32];label[..8].copy_from_slice(if is_a{b"A_tensor"}else{b"B_tensor"});let key=if is_a{seeds.1}else{seeds.0};let p=generate_permutation_matrix(&label,&key,k,rank);let got=noisy_chunk(&raw,first,k,rank,&label,&key,&p).unwrap();let want=if is_a{&expected.a}else{&expected.b};assert_eq!(got,want.iter().flatten().map(|&x|x as u8).collect::<Vec<_>>());}
+  }
+ }
+ #[test]fn packed_random_int7_range_and_freshness(){let a=random_matrix(65536,&mut StdRng::from_os_rng());let b=random_matrix(65536,&mut StdRng::from_os_rng());assert_ne!(a,b);assert!(a.iter().all(|&v|(-64..=63).contains(&(v as i8))));}
 }

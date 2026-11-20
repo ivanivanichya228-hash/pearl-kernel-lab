@@ -35,7 +35,8 @@ async def test(args):
    stdout,stderr=await asyncio.wait_for(proc.communicate(),28)
    assert proc.returncode==0,(stdout.decode(),stderr.decode())
    records=[json.loads(line) for line in stdout.decode().splitlines()];final=next(r for r in records if r.get('event')=='final');assert final['scope']=='mock';counts=m.Counts(**{k:final[k] for k in vars(m.Counts())})
-   assert (tmp/'evidence/GPU.log').is_file() and (tmp/'evidence/proofs.log').is_file()
+   assert len(list((tmp/'evidence').glob('*/GPU.log')))==2 and len(list((tmp/'evidence').glob('*/proofs.log')))==2
+   assert len(list((tmp/'evidence').glob('*/events.jsonl')))==2
 
   finally:
    server.close();await server.wait_closed()
