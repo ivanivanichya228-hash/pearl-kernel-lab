@@ -1,5 +1,6 @@
 //! Synthetic CPU compatibility oracle. Calls the unmodified pinned upstream verifier.
 mod pool;
+mod pipeline;
 use anyhow::{Result,ensure,bail};
 use std::{fs,path::Path};
 use rand::{SeedableRng,rngs::StdRng};
@@ -36,6 +37,9 @@ fn verify_outputs(out:&Path,file:&Path)->Result<()> {
 }
 fn main()->Result<()> {
  let args:Vec<String>=std::env::args().collect();
+ if args.len()==6 && args[1]=="batch-prepare" {ensure!(args[5]=="actual" || args[5]=="synthetic-mid", "batch target mode must be actual or synthetic-mid");
+        return pipeline::prepare(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]),args[5]=="synthetic-mid");}
+ if args.len()==5 && args[1]=="batch-finalize" {return pipeline::finalize(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==5 && args[1]=="hash-vectors" {return pool::hash_vectors(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==5 && args[1]=="pool-candidate" {return pool::candidate(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==6 && args[1]=="pool-verify" {return pool::verify(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]),Path::new(&args[5]));}if args.len()==4 && args[1]=="verify"{return verify_outputs(Path::new(&args[2]),Path::new(&args[3]));}

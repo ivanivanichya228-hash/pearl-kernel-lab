@@ -1,6 +1,6 @@
 {
-  "version": "0.5.0",
-  "date": "2026-11-19",
+  "version": "0.6.0",
+  "date": "2026-11-20",
   "CUDA_compiler": "13.0.88",
   "targets": [
     "sm_86",
@@ -81,7 +81,7 @@
   },
   "GPU_execution_gate": "--run-gpu; refuses visible SRBMiner process unless --allow-concurrent-miner",
   "baseline": "our own 256-thread implementation, not SRBMiner",
-  "scope": "preformed signed INT8 prefix GEMM and rolling XOR transcript, no noise generation, commitment, BLAKE3, certificate or pool integration",
+  "scope": "Offline bounded batch preparation, stage64 GEMM + keyed hash filter, hit export, official plain-proof construction/verification and submit-frame formatting. No live pool loop or accepted own-miner share.",
   "CUDA_binary_build_version": "legacy 0.1.0; bundled bin is not the new kernel; rebuild required",
   "GPU_test_target": "RTX 4090 / Linux Mint only",
   "read_only_PL_guard": "tools/test_4090_mint.py; explicit expected PL; UUID isolation; stop on PL/read failure",
@@ -205,5 +205,30 @@
     "hash_vectors_sha256": "bc972d1f4cb4f895b8bace976a95fd9f2364d6ba80c1c62c63fa76622ee35d9e"
   },
   "real_pool_share_accepted": false,
-  "complete_miner": false
+  "complete_miner": false,
+  "current_revision_GPU_executed": false,
+  "offline_batch_pipeline": {
+    "official_proof_and_exact_target_passed": true,
+    "candidates": 4,
+    "qualified_hits": 2,
+    "submit_frames_roundtripped": 2,
+    "negative_cases_rejected": [
+      "stale_job",
+      "wrong_batch",
+      "missing_hit",
+      "false_hit",
+      "duplicate_hit",
+      "transcript_corruption",
+      "missing_transcript",
+      "out_of_range_hit"
+    ],
+    "GPU_executed": false,
+    "GPU_input_source": "CPU-simulated only",
+    "synthetic_target": true,
+    "real_pool_share_accepted": false,
+    "network_used": false,
+    "share_sent": false
+  },
+  "history_note": "Older GPU_tested=false fields record historical local build stages, not the supplied later rig evidence. Current new pipeline/filter GPU result is pending.",
+  "current_batch_archive_sha256": "b021d10596ce86ecf29066a6058303b7601fc7300e0f3f979ad1670d2d4c3f3f"
 }

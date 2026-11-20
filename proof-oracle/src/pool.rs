@@ -8,11 +8,11 @@ use sha2::{Digest,Sha256};
 use primitive_types::U256;
 use zk_pow::{api::{proof::{IncompleteBlockHeader,MiningConfiguration,MMAType,PeriodicPattern},proof_utils::{CompiledPublicParams,compute_jackpot_hash},verify::verify_plain_proof,sanity_checks::penalized_target_bound},
  circuit::{chip::compute_jackpot,pearl_noise::compute_noise},ffi::{plain_proof::{PlainProof,check_cert_version_eligible},mine::try_mine_one}};
-fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
-fn unhex(s:&str)->Result<Vec<u8>>{ensure!(s.len()%2==0&&s.is_ascii()&&s.bytes().all(|c|c.is_ascii_hexdigit()),"invalid hex");(0..s.len()).step_by(2).map(|i|Ok(u8::from_str_radix(&s[i..i+2],16)?)).collect()}
-fn load(path:&Path)->Result<Value>{Ok(serde_json::from_slice(&fs::read(path)?)?)}
-fn uint(v:&Value,name:&str)->Result<usize>{Ok(v[name].as_u64().ok_or_else(||anyhow::anyhow!("missing integer {name}"))?.try_into()?)}
-fn context(job:&Value)->Result<(&Value,IncompleteBlockHeader,U256,String)>{
+pub(super) fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
+pub(super) fn unhex(s:&str)->Result<Vec<u8>>{ensure!(s.len()%2==0&&s.is_ascii()&&s.bytes().all(|c|c.is_ascii_hexdigit()),"invalid hex");(0..s.len()).step_by(2).map(|i|Ok(u8::from_str_radix(&s[i..i+2],16)?)).collect()}
+pub(super) fn load(path:&Path)->Result<Value>{Ok(serde_json::from_slice(&fs::read(path)?)?)}
+pub(super) fn uint(v:&Value,name:&str)->Result<usize>{Ok(v[name].as_u64().ok_or_else(||anyhow::anyhow!("missing integer {name}"))?.try_into()?)}
+pub(super) fn context(job:&Value)->Result<(&Value,IncompleteBlockHeader,U256,String)>{
  let p=if job.get("notify_params").is_some(){&job["notify_params"]}else{ensure!(job["method"]=="mining.notify","wrong method");&job["params"]};
  ensure!(p["cert_version"]==3,"only V3 supported");let raw=unhex(p["header"].as_str().ok_or_else(||anyhow::anyhow!("header"))?)?;
  let header=IncompleteBlockHeader::from_bytes(&raw)?;
@@ -22,7 +22,7 @@ fn context(job:&Value)->Result<(&Value,IncompleteBlockHeader,U256,String)>{
  let mut binding=b"pearl-pool-job-v1\0".to_vec();binding.extend(&raw);binding.extend(3u32.to_le_bytes());binding.extend(&target_bytes);binding.extend((jid.len() as u32).to_le_bytes());binding.extend(jid.as_bytes());
  Ok((p,header,target,hex(&Sha256::digest(&binding))))
 }
-fn config(profile:&Value)->Result<MiningConfiguration>{
+pub(super) fn config(profile:&Value)->Result<MiningConfiguration>{
  let m=uint(profile,"m")?;let n=uint(profile,"n")?;let k=uint(profile,"k")?;let rank=uint(profile,"rank")?;
  ensure!(m>0&&n>0&&m<=(1<<24)&&n<=(1<<24),"matrix dimensions");
  ensure!((128..=1024).contains(&rank)&&rank.is_power_of_two(),"rank");
@@ -35,7 +35,7 @@ fn config(profile:&Value)->Result<MiningConfiguration>{
  Ok(MiningConfiguration{common_dim:uint(profile,"k")?.try_into()?,rank:uint(profile,"rank")?.try_into()?,mma_type:MMAType::Int7xInt7ToInt32,
  rows_pattern:PeriodicPattern::from_list(&rows)?,cols_pattern:PeriodicPattern::from_list(&cols)?,moe:None})
 }
-fn evaluate(job:&Value,profile:&Value,proof:&PlainProof)->Result<Value>{
+pub(super) fn evaluate(job:&Value,profile:&Value,proof:&PlainProof)->Result<Value>{
  let (p,header,target,fingerprint)=context(job)?;let configuration=config(profile)?;
  ensure!(proof.m==uint(profile,"m")? && proof.n==uint(profile,"n")? && proof.k==uint(profile,"k")? && proof.noise_rank==uint(profile,"rank")?,"profile/proof dimensions differ");
  let version=check_cert_version_eligible(3,proof)?;let derivation=version.seed_derivation();

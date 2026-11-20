@@ -1,3 +1,5 @@
+Current stage: [BATCH-PIPELINE.md](BATCH-PIPELINE.md) — offline batch → GPU hit indices → official plain proof. CPU integration passed; new GPU pipeline pending. Synthetic target only, no share sent.
+
 > Revision0.5.0: [LUCKYPOOL-ADAPTER.md](LUCKYPOOL-ADAPTER.md): real-job offline adapter and new GPU hash filter. CPU tests passed; new GPU stage not tested. Older tasks are historical.
 
 > Revision0.4.0: [PROOF-COMPATIBILITY-4090.md](PROOF-COMPATIBILITY-4090.md). Official plain-proof CPU bridge passed; new GPU fixture comparison pending. Previous tasks are historical.

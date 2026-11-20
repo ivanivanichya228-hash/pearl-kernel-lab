@@ -1,0 +1,22 @@
+{
+  "official_proof_and_exact_target_passed": true,
+  "candidates": 4,
+  "qualified_hits": 2,
+  "submit_frames_roundtripped": 2,
+  "negative_cases_rejected": [
+    "stale_job",
+    "wrong_batch",
+    "missing_hit",
+    "false_hit",
+    "duplicate_hit",
+    "transcript_corruption",
+    "missing_transcript",
+    "out_of_range_hit"
+  ],
+  "GPU_executed": false,
+  "GPU_input_source": "CPU-simulated only",
+  "synthetic_target": true,
+  "real_pool_share_accepted": false,
+  "network_used": false,
+  "share_sent": false
+}

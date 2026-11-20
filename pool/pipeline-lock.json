@@ -1,0 +1,14 @@
+{
+  "archive": "pipeline-lab.tar.gz",
+  "size": 485261,
+  "sha256": "b021d10596ce86ecf29066a6058303b7601fc7300e0f3f979ad1670d2d4c3f3f",
+  "synthetic_target": true,
+  "files": {
+    "batch.fixture": "0e6d044ce3bd20da905733fa864872c05dab6a36a339128f6771a45227a0eff7",
+    "job.json": "d2cc2446c7f2a84066acd69f21ae3826bcc4d0eca93408a87c625134613ea1f7",
+    "manifest.json": "d3186fa7ed5d1610f3763caf823bfb846ee6394bfab6ee2fd527d5fd5736a33d",
+    "profile.json": "58b4f47cce7c205b2ec5182c8b69552ad0e4ed36ffde183c47ce01a7da653f16",
+    "raw-a.bin": "3a0bd6487f01aab609b60cf96d862a16dc49f05e7fba3029263028a5d36cabe6",
+    "raw-bt.bin": "18ec60fe64d1873078f53b11fc440f36f3a2bfe5071c5495028662c05bc2b6d0"
+  }
+}
