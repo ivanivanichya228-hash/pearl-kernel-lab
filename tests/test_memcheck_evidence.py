@@ -12,3 +12,10 @@ class EvidenceTests(unittest.TestCase):
   good='{"phase":"correctness","passed":true,"non_debug_transcript_checked":true}\nERROR SUMMARY: 0 errors\n'
   with self.assertRaises(ValueError):g.validate_memcheck(good,255)
   with self.assertRaises(ValueError):g.validate_memcheck(good+'========= Error: launcher failed',0)
+
+class FilterEvidenceTests(unittest.TestCase):
+ def test_filter_requires_its_own_completed_checks(self):
+  good='{"phase":"hash_filter_correctness","passed":true,"official_vectors":195,"uniform_context_passed":true,"capacity_edges_passed":true}\nERROR SUMMARY: 0 errors\n'
+  g.validate_memcheck(good,0,'filter-check')
+  with self.assertRaises(ValueError):g.validate_memcheck(good.replace('195','194'),0,'filter-check')
+  with self.assertRaises(ValueError):g.validate_memcheck(good,0,'check')

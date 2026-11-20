@@ -1,0 +1,12 @@
+{
+  "id": null,
+  "method": "mining.notify",
+  "params": {
+    "cert_version": 3,
+    "diff": 1500000,
+    "header": "0000002046de17eb16a90ac620859cba4fd15e4d0068ab04ecbf21460ffcbec56d16e10f1fc26138ae413c022f77486d2c77eec5ca96e426f52d483aced179d54d7a12672b74ff6a83e14317",
+    "height": 145704,
+    "job_id": "ba8b8556_1500000",
+    "target": "0000000000000b2f449129888f861a60d4562e09fe86833c60029f16b11c6d1e"
+  }
+}

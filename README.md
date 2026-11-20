@@ -1,3 +1,5 @@
+> Revision0.5.0: [LUCKYPOOL-ADAPTER.md](LUCKYPOOL-ADAPTER.md): real-job offline adapter and new GPU hash filter. CPU tests passed; new GPU stage not tested. Older tasks are historical.
+
 > Revision0.4.0: [PROOF-COMPATIBILITY-4090.md](PROOF-COMPATIBILITY-4090.md). Official plain-proof CPU bridge passed; new GPU fixture comparison pending. Previous tasks are historical.
 
 > Revision0.3.3: follow [ISOLATED-SANITIZER-4090.md](ISOLATED-SANITIZER-4090.md). Use pinned standalone sanitizer; old installed-tool tasks are historical.

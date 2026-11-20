@@ -30,7 +30,7 @@ def validation_budget(duration,warmup,rounds,timeout,mode,sanitizer):
     scheduled=4*rounds*(duration+warmup)
     if mode=='bench' and (scheduled>45 or timeout<scheduled+10):
         raise ValueError('Benchmark exceeds pause budget or lacks 10s check margin')
-    if sanitizer and mode!='check':
+    if sanitizer and mode not in ('check','filter-check'):
         raise ValueError('Compute Sanitizer is restricted to correctness mode')
     return scheduled if mode=='bench' else 0
 
@@ -44,7 +44,7 @@ def terminate_group(proc):
     except ProcessLookupError:pass
     proc.wait()
 
-def validate_memcheck(output,returncode):
+def validate_memcheck(output,returncode,mode="check"):
     if returncode!=0:raise ValueError('Compute Sanitizer exit '+str(returncode))
     import re
     if re.search(r'(?im)^.*\bError:',output):raise ValueError('Sanitizer emitted Error despite exit0')
@@ -55,16 +55,19 @@ def validate_memcheck(output,returncode):
     for line in output.splitlines():
         try:record=json.loads(line)
         except (ValueError,TypeError):continue
-        if isinstance(record,dict) and record.get('phase')=='correctness':
+        if isinstance(record,dict) and mode=='filter-check' and record.get('phase')=='hash_filter_correctness':
+            correctness=(record.get('passed') is True and record.get('official_vectors')==195 and record.get('uniform_context_passed') is True and record.get('capacity_edges_passed') is True)
+        if isinstance(record,dict) and mode=='check' and record.get('phase')=='correctness':
             correctness=record.get('passed') is True and record.get('non_debug_transcript_checked') is True
     if not correctness:raise ValueError('No completed debug/non-debug correctness result')
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-gpu',action='store_true')
-    p.add_argument('--mode',choices=['check','bench','info'],default='check')
+    p.add_argument('--mode',choices=['check','bench','info','filter-check'],default='check')
     p.add_argument('--gpu',default='0',help='physical nvidia-smi index or GPU UUID')
     p.add_argument('--expected-power-limit-w',type=Decimal,required=True)
+    p.add_argument('--hash-vectors',type=Path,default=ROOT/'pool/hash-vectors.bin')
     p.add_argument('--fixtures',type=Path,default=ROOT/'tests/fixtures')
     p.add_argument('--export-transcripts',type=Path)
     p.add_argument('--duration',type=float,default=2)
@@ -98,11 +101,14 @@ def main():
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
     if '--rounds 1..3' not in help_result.stdout:
         raise ValueError('Stale harness; rebuild the validation revision before any pause')
+    if args.mode=='filter-check' and 'filter-check' not in help_result.stdout:
+        raise ValueError('Filter check requires rebuilt bench; no test started')
     if args.export_transcripts and '--export-transcripts' not in help_result.stdout:
         raise ValueError('Transcript export requires rebuilt bench; no test started')
     env=child_env(sanitizer) if sanitizer else os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
              '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(args.fixtures.resolve())]
+    if args.mode=='filter-check':command+=['--hash-vectors',str(args.hash_vectors.resolve())]
     if args.export_transcripts:command+=['--export-transcripts',str(args.export_transcripts.resolve())]
     if args.allow_concurrent_miner:command.append('--allow-concurrent-miner')
     if sanitizer:command=[sanitizer['executable'],'--injection-path',sanitizer['injection_path'],'--tool','memcheck','--error-exitcode','86','--leak-check','full']+command
@@ -127,7 +133,7 @@ def main():
         if final_uuid!=uuid or final_limit!=limit:raise ValueError('Final PL differs')
         if capture:
             capture.seek(0);output=capture.read();print(output,end='',flush=True);emitted=True
-            validate_memcheck(output,proc.returncode)
+            validate_memcheck(output,proc.returncode,args.mode)
         print(json.dumps({'phase':'guard_final','PL_W':str(final_limit),'unchanged':True,
                           'child_exit_code':proc.returncode}),flush=True)
         return proc.returncode

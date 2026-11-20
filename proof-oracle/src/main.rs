@@ -1,4 +1,5 @@
 //! Synthetic CPU compatibility oracle. Calls the unmodified pinned upstream verifier.
+mod pool;
 use anyhow::{Result,ensure,bail};
 use std::{fs,path::Path};
 use rand::{SeedableRng,rngs::StdRng};
@@ -34,7 +35,10 @@ fn verify_outputs(out:&Path,file:&Path)->Result<()> {
  println!("6 external transcripts match official proof/noise/seed/jackpot hash; official plain verifier passed");Ok(())
 }
 fn main()->Result<()> {
- let args:Vec<String>=std::env::args().collect();if args.len()==4 && args[1]=="verify"{return verify_outputs(Path::new(&args[2]),Path::new(&args[3]));}
+ let args:Vec<String>=std::env::args().collect();
+ if args.len()==5 && args[1]=="hash-vectors" {return pool::hash_vectors(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
+ if args.len()==5 && args[1]=="pool-candidate" {return pool::candidate(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
+ if args.len()==6 && args[1]=="pool-verify" {return pool::verify(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]),Path::new(&args[5]));}if args.len()==4 && args[1]=="verify"{return verify_outputs(Path::new(&args[2]),Path::new(&args[3]));}
  ensure!(args.len()==2,"usage: pearl-protocol-oracle OUTPUT_DIR | verify DIR TRANSCRIPTS");
  let out=Path::new(&args[1]);fs::create_dir_all(out)?;let mut cases=Vec::new();
  for i in 0..6usize {

@@ -1,0 +1,24 @@
+{
+  "synthetic_submit_frame_roundtrip_passed": true,
+  "official_proof_bytes_preserved": true,
+  "Rust_and_Python_context_and_bounds_match": true,
+  "negative_cases_rejected": [
+    "altered_proof_bytes",
+    "stale_job",
+    "foreign_job_header",
+    "real_target_not_met"
+  ],
+  "real_header_structural_verifier_passed": true,
+  "real_candidate_share_target_passed": false,
+  "pool_policy_verified": false,
+  "real_pool_share_accepted": false,
+  "GPU_used": false,
+  "network_used": false,
+  "synthetic_frame_sha256": "b86c5d430c315217b299555daa5aa735fa73fad20c977443241fb9887381450e",
+  "official_keyed_hash_target_vectors_CPU_passed": 195,
+  "CUDA_filter_compiled": true,
+  "CUDA_filter_GPU_tested": false,
+  "CUDA_filter_registers_sm86_sm89": 40,
+  "CUDA_filter_spill_bytes": 0,
+  "hash_vectors_sha256": "bc972d1f4cb4f895b8bace976a95fd9f2364d6ba80c1c62c63fa76622ee35d9e"
+}

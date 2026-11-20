@@ -7,8 +7,8 @@ NVFLAGS = -std=c++17 -O3 -lineinfo -Iinclude -L$(CUDA_HOME)/lib $(CUDA_ARCH_FLAG
 all: build/pearl-bench
 build:
 	mkdir -p build
-build/pearl-bench: src/kernel.cu src/bench.cu include/kernel.cuh include/contract.hpp include/fixture.hpp include/validation.hpp | build
-	$(NVCC) $(NVFLAGS) src/kernel.cu src/bench.cu -Xcompiler=-pthread -ldl -o $@
+build/pearl-bench: src/kernel.cu src/bench.cu src/filter.cu include/filter.cuh include/jackpot_hash.hpp include/hash_vectors.hpp include/kernel.cuh include/contract.hpp include/fixture.hpp include/validation.hpp | build
+	$(NVCC) $(NVFLAGS) src/kernel.cu src/bench.cu src/filter.cu -Xcompiler=-pthread -ldl -o $@
 build/test-contract: tests/test_contract.cpp include/contract.hpp | build
 	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
 build/check-fixtures: tests/check_fixtures.cpp include/fixture.hpp include/contract.hpp | build
@@ -27,4 +27,7 @@ clean:
 	rm -rf build
 
 build/protocol-cpu: tests/protocol_cpu.cpp include/fixture.hpp include/contract.hpp | build
+	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
+
+build/test-jackpot-hash: tests/test_jackpot_hash.cpp include/jackpot_hash.hpp include/hash_vectors.hpp | build
 	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@

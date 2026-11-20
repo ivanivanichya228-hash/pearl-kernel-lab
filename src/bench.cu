@@ -1,3 +1,4 @@
+#include "filter.cuh"
 #include "validation.hpp"
 #include "kernel.cuh"
 #include "fixture.hpp"
@@ -155,13 +156,13 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path;
+    bool allow=false,concurrent=false;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin";
     Shape shape{2048,6144,4096,128,16};ValidationPlan plan;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
-        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info] [--device N]\n"
-          <<"  [--fixtures DIR --export-transcripts FILE] [--m M --n N --k K --rank R --proof-n 8|16]\n"
+        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check] [--device N]\n"
+          <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--m M --n N --k K --rank R --proof-n 8|16]\n"
           <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|512 --stage-k 32|64] [--allow-concurrent-miner]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
@@ -173,6 +174,7 @@ int main(int argc,char**argv){
       if(s=="--mode")mode=v;else if(s=="--device")device=std::stoi(v);
       else if(s=="--stage-k")stage_k=std::stoi(v);
       else if(s=="--candidate")candidate=std::stoi(v);
+      else if(s=="--hash-vectors")hash_vectors=v;
       else if(s=="--export-transcripts")export_path=v;
       else if(s=="--fixtures")fixtures=v;else if(s=="--duration")plan.duration=std::stod(v);
       else if(s=="--warmup")plan.warmup=std::stod(v);
@@ -182,7 +184,7 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info")||(candidate!=128&&candidate!=256&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256)||device<0||device>31)
+    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check")||(candidate!=128&&candidate!=256&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256)||device<0||device>31)
       throw std::runtime_error("invalid options");
     plan.validate();
     bool miner=miner_present();
@@ -192,6 +194,7 @@ int main(int argc,char**argv){
     char pci[32];check(cudaDeviceGetPCIBusId(pci,sizeof(pci),device));
     std::cout<<"{\"phase\":\"device\",\"name\":"<<quoted(prop.name)<<",\"pci\":"<<quoted(pci)
       <<",\"SMs\":"<<prop.multiProcessorCount<<",\"concurrent_miner_detected\":"<<(miner?"true":"false")<<"}\n";
+    if(mode=="filter-check"){check_jackpot_filter(hash_vectors);return 0;}
     resources(shape.proof_n);if(mode=="info")return 0;
     verify(fixtures,export_path);if(mode=="check")return 0;
     const uint64_t bytes=uint64_t(shape.m+shape.n)*shape.k+uint64_t(shape.groups())*16*4*2;
