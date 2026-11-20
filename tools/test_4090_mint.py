@@ -30,7 +30,7 @@ def validation_budget(duration,warmup,rounds,timeout,mode,sanitizer):
     scheduled=4*rounds*(duration+warmup)
     if mode=='bench' and (scheduled>45 or timeout<scheduled+10):
         raise ValueError('Benchmark exceeds pause budget or lacks 10s check margin')
-    if sanitizer and mode not in ('check','filter-check','pipeline-check','mine-batch'):
+    if sanitizer and mode not in ('check','filter-check','pipeline-check','mine-batch','noise-check'):
         raise ValueError('Compute Sanitizer is restricted to correctness mode')
     return scheduled if mode=='bench' else 0
 
@@ -56,7 +56,7 @@ def validate_memcheck(output,returncode,mode="check"):
     for line in output.splitlines():
         try:record=json.loads(line)
         except (ValueError,TypeError):continue
-        if isinstance(record,dict) and mode in ('filter-check','pipeline-check','mine-batch') and record.get('phase')=='hash_filter_correctness':
+        if isinstance(record,dict) and mode in ('filter-check','pipeline-check','mine-batch','noise-check') and record.get('phase')=='hash_filter_correctness':
             filter_passed=(record.get('passed') is True and record.get('official_vectors')==195 and record.get('uniform_context_passed') is True and record.get('capacity_edges_passed') is True)
         if isinstance(record,dict) and mode=='mine-batch' and record.get('phase')=='mining_batch':
             correctness=(record.get('groups')==4 and record.get('hits')==4 and record.get('target_modified') is False)
@@ -64,6 +64,8 @@ def validate_memcheck(output,returncode,mode="check"):
             correctness=(record.get('passed') is True and record.get('groups')==4 and record.get('hits')==2 and record.get('debug_matrix_checked') is True and record.get('non_debug_transcript_checked') is True and record.get('ordered_stream') is True and record.get('network_used') is False)
         if isinstance(record,dict) and mode=='check' and record.get('phase')=='correctness':
             correctness=record.get('passed') is True and record.get('non_debug_transcript_checked') is True
+        if isinstance(record,dict) and mode=='noise-check' and record.get('phase')=='noise_correctness':
+            correctness=(record.get('passed') is True and record.get('all_A_B_bytes_checked') is True and record.get('matrix_bytes',0)>0 and record.get('rank') in (128,256))
     if mode=='filter-check':correctness=filter_passed
     if mode=='pipeline-check':correctness=correctness and filter_passed
     if not correctness:raise ValueError('No completed debug/non-debug correctness result')
@@ -71,12 +73,15 @@ def validate_memcheck(output,returncode,mode="check"):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-gpu',action='store_true')
-    p.add_argument('--mode',choices=['check','bench','info','filter-check','pipeline-check','mine-batch'],default='check')
+    p.add_argument('--mode',choices=['check','bench','info','filter-check','pipeline-check','mine-batch','noise-check'],default='check')
     p.add_argument('--gpu',default='0',help='physical nvidia-smi index or GPU UUID')
     p.add_argument('--expected-power-limit-w',type=Decimal,required=True)
     p.add_argument('--hash-vectors',type=Path,default=ROOT/'pool/hash-vectors.bin')
     p.add_argument('--fixtures',type=Path,default=ROOT/'tests/fixtures')
     p.add_argument('--work-input',type=Path)
+    p.add_argument('--noise-reference',type=Path)
+    p.add_argument('--paused-pid',type=int)
+    p.add_argument('--paused-start-ticks',type=int)
     p.add_argument('--work-output',type=Path)
     p.add_argument('--pipeline-fixture',type=Path)
     p.add_argument('--export-pipeline',type=Path)
@@ -112,6 +117,9 @@ def main():
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
     if '--rounds 1..3' not in help_result.stdout:
         raise ValueError('Stale harness; rebuild the validation revision before any pause')
+    if args.mode=='noise-check':
+        if 'noise-check' not in help_result.stdout or not args.work_input or not args.noise_reference or not args.paused_pid or not args.paused_start_ticks:
+            raise ValueError('noise-check needs reference files and original paused miner identity')
     if args.mode=='mine-batch':
         if 'mine-batch' not in help_result.stdout or not args.work_input or not args.work_output or args.work_output.exists():
             raise ValueError('mine-batch requires rebuilt bench, input and new output')
@@ -125,6 +133,7 @@ def main():
     env=child_env(sanitizer) if sanitizer else os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
              '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(args.fixtures.resolve())]
+    if args.mode=='noise-check':command+=['--work-input',str(args.work_input.resolve()),'--noise-reference',str(args.noise_reference.resolve()),'--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
     if args.mode=='mine-batch':command+=['--work-input',str(args.work_input.resolve()),'--work-output',str(args.work_output.resolve())]
     if args.mode=='pipeline-check':command+=['--pipeline-fixture',str(args.pipeline_fixture.resolve()),'--export-pipeline',str(args.export_pipeline.resolve()),'--hash-vectors',str(args.hash_vectors.resolve())]
     if args.mode=='filter-check':command+=['--hash-vectors',str(args.hash_vectors.resolve())]

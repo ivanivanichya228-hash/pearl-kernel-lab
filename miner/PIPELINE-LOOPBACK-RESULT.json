@@ -1,4 +1,5 @@
 {
+  "GPU_noise_requested": false,
   "pipeline_enabled": true,
   "single_persistent_process_verified": true,
   "RAM_workspace_cleaned": true,

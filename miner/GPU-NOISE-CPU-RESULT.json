@@ -1,0 +1,20 @@
+{
+  "unmodified_official_noise_arrays_matched": true,
+  "cases": 4,
+  "rank_values": [
+    128,
+    256
+  ],
+  "proof_column_values": [
+    8,
+    16
+  ],
+  "all_A_B_bytes_compared": 835584,
+  "official_plain_proofs_verified": 26,
+  "raw_manifest_bytes": 188,
+  "CPU_noise_skipped_in_raw_preparation": true,
+  "GPU_executed": false,
+  "external_network_used": false,
+  "real_pool_share_accepted": false,
+  "note": "Independent C++ implementation of intended GPU algorithm versus unmodified official Rust arrays and verifier; actual GPU check pending."
+}

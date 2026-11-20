@@ -17,7 +17,9 @@ fn noisy_chunk(raw:&[u8],first:usize,k:usize,rank:usize,seed:&[u8;32],key:&[u8;3
   for (c,x) in row.iter_mut().enumerate(){let [a,b]=perm[c];let sum=raw[local*k+c] as i8 as i32+v[a as usize] as i32-v[b as usize] as i32;ensure!((-127..=127).contains(&sum),"noise sum out of range");*x=sum as i8 as u8;}Ok(())
  })?;Ok(data)
 }
-pub fn prepare(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{
+pub fn prepare(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{prepare_mode(job_path,profile_path,out,false)}
+pub fn prepare_raw(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{prepare_mode(job_path,profile_path,out,true)}
+fn prepare_mode(job_path:&Path,profile_path:&Path,out:&Path,gpu_noise:bool)->Result<()>{
  ensure!(!out.exists(),"new work directory required");let job=pool::load(job_path)?;let profile=pool::load(profile_path)?;let cfg=pool::config(&profile)?;
  let (m,n,k)=(pool::uint(&profile,"m")?,pool::uint(&profile,"n")?,pool::uint(&profile,"k")?);
  ensure!(m<=131072&&n<=131072&&k<=8192&&(m+n)*k<=(1usize<<31),"work memory bounds");
@@ -31,23 +33,33 @@ pub fn prepare(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{
  fs::create_dir(out)?;fs::write(out.join("job.json"),serde_json::to_vec(&job)?)?;fs::write(out.join("profile.json"),serde_json::to_vec(&profile)?)?;
  fs::write(out.join("raw-a.bin"),&a)?;fs::write(out.join("raw-bt.bin"),&bt)?;
  timed("raw_files",started);
- let mut file=fs::File::create(out.join("work.bin"))?;file.write_all(b"PRLWORK1")?;
+ let mut file=fs::File::create(out.join("work.bin"))?;file.write_all(if gpu_noise{b"PRLRAWN1"}else{b"PRLWORK1"})?;
  for x in [m,n,k,cfg.rank as usize,cfg.cols_pattern.size() as usize]{file.write_all(&(x as u32).to_le_bytes())?;}
- file.write_all(&pool::unhex(&fp)?)?;file.write_all(&pool::unhex(&id)?)?;file.write_all(&seeds.1)?;let mut bound_bytes=[0u8;32];bound.to_little_endian(&mut bound_bytes);file.write_all(&bound_bytes)?;
+ file.write_all(&pool::unhex(&fp)?)?;file.write_all(&pool::unhex(&id)?)?;file.write_all(&seeds.1)?;if gpu_noise{file.write_all(&seeds.0)?;}let mut bound_bytes=[0u8;32];bound.to_little_endian(&mut bound_bytes);file.write_all(&bound_bytes)?;
  // Chunk noise generation: whole commitments, global row indices; no giant noise matrix.
  let started=Instant::now();
- for (raw,rows,is_a) in [(&a,m,true),(&bt,n,false)]{
+ if !gpu_noise{for (raw,rows,is_a) in [(&a,m,true),(&bt,n,false)]{
   let mut label=[0u8;32];label[..8].copy_from_slice(if is_a{b"A_tensor"}else{b"B_tensor"});let key=if is_a{seeds.1}else{seeds.0};let perm=generate_permutation_matrix(&label,&key,k,cfg.rank as usize);
   for first in (0..rows).step_by(1024){let indices=(first..rows.min(first+1024)).collect::<Vec<_>>();
    let bytes=noisy_chunk(&raw[first*k..(first+indices.len())*k],first,k,cfg.rank as usize,&label,&key,&perm)?;
    file.write_all(&bytes)?;
   }
  }
- timed("noise_and_work_write",started);let started=Instant::now();// All writes use unbuffered std::fs::File and write_all. The next process starts only
+ }
+ timed(if gpu_noise{"raw_manifest_write"}else{"noise_and_work_write"},started);let started=Instant::now();// All writes use unbuffered std::fs::File and write_all. The next process starts only
  // after success; cancelled work is deleted. Crash-durable storage is unnecessary here.
  file.flush()?;drop(file);timed("file_close",started);timed("total",total);
- fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true}))?)?;
+ fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true,"input_mode":if gpu_noise{"raw-for-GPU-noise"}else{"CPU-noised"}}))?)?;
  println!("Fresh real-target work prepared (no CPU GEMM / no network)");Ok(())
+}
+pub fn reference_noise(batch:&Path,out:&Path)->Result<()>{
+ ensure!(!out.exists(),"new reference path required");let job=pool::load(&batch.join("job.json"))?;let profile=pool::load(&batch.join("profile.json"))?;let cfg=pool::config(&profile)?;
+ let (m,n,k)=(pool::uint(&profile,"m")?,pool::uint(&profile,"n")?,pool::uint(&profile,"k")?);ensure!(m<=256&&n<=256&&k<=8192,"reference is bounded CPU validation only");
+ let a=fs::read(batch.join("raw-a.bin"))?;let bt=fs::read(batch.join("raw-bt.bin"))?;let (at,btree,public)=pipeline::trees(&job,&profile,&a,&bt)?;let (_,_,target,fp)=pool::context(&job)?;let id=pipeline::batch_id(&job,&at,&btree)?;let seeds=public.commitment_hash(public.job_key());
+ let noise=zk_pow::circuit::pearl_noise::compute_noise_for_indices(k,cfg.rank as usize,seeds,&(0..m).collect::<Vec<_>>(),&(0..n).collect::<Vec<_>>());
+ let mut f=fs::File::create(out)?;f.write_all(b"PRLWORK1")?;for d in [m,n,k,cfg.rank as usize,cfg.cols_pattern.size() as usize]{f.write_all(&(d as u32).to_le_bytes())?;}f.write_all(&pool::unhex(&fp)?)?;f.write_all(&pool::unhex(&id)?)?;f.write_all(&seeds.1)?;
+ let bound=penalized_target_bound(target,&cfg).ok_or_else(||anyhow::anyhow!("bound"))?;let mut b=[0u8;32];bound.to_little_endian(&mut b);f.write_all(&b)?;
+ for(raw,add)in[(&a,&noise.a),(&bt,&noise.b)]{let mut values=Vec::with_capacity(raw.len());for row in 0..raw.len()/k{for c in 0..k{let v=raw[row*k+c] as i8 as i32+add[row][c] as i32;ensure!((-127..=127).contains(&v),"reference overflow");values.push(v as i8 as u8);}}f.write_all(&values)?;}Ok(())
 }
 pub fn finalize(batch:&Path,hits_path:&Path,out:&Path)->Result<()>{
  ensure!(!out.exists(),"new proof directory required");let job=pool::load(&batch.join("job.json"))?;let profile=pool::load(&batch.join("profile.json"))?;let hits=pool::load(hits_path)?;

@@ -1,22 +1,24 @@
 {
   "archive": "oracle-linux-x86_64.gz",
-  "archive_size": 714063,
-  "archive_sha256": "0ec0f5ab68bc818d51cb718e8f63cfa9867a779fa44753be14d08563312f3976",
-  "binary_size": 2011736,
-  "binary_sha256": "196477cca4637912089b36e7eeeca3bb6187b0e08ad7aa1256da6a8fd0854c33",
+  "archive_size": 716829,
+  "archive_sha256": "58631f6ff63a4356241adc26a8bcc59683774e10616e4b694dac6a766d55e1d7",
+  "binary_size": 2020488,
+  "binary_sha256": "eb6651e7e741f3b3df069a2202956346232e769fe85c22e03c5a62db465c17c4",
   "rustc": "1.90.0",
   "target": "x86_64-unknown-linux-gnu",
   "official_upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9",
   "sources_sha256": {
     "proof-oracle/Cargo.toml": "d981a5c14dc1f36879213810b580bb15726949742c6a055e7af09a4abe7a4ec9",
     "proof-oracle/Cargo.lock": "7a74bde4b008eea6708af150c142c88b1a45f65a9c82583d061e9b4d37effab5",
-    "proof-oracle/src/main.rs": "1481ef4d98f286144153621e4d0578a2badddb6c198e637df72ae9bffdd4c2da",
+    "proof-oracle/src/main.rs": "5f0a1d7f3bf52f526bea1f308ed2012855b42075654cb640168ea1abaf047490",
     "proof-oracle/src/pool.rs": "a18c49cc130611af8e6373657f682041abf5ac3c86c1862d2bb3277f1d6c70da",
     "proof-oracle/src/pipeline.rs": "e0804198f14e56f5be65e0c4d6fc7a70fc7a51b51a870ccf05a4f06fb856e65b",
-    "proof-oracle/src/work.rs": "67d4edfbb8f18b9805e01a8c33e094c4919c111f1038383247e12e7beeb8603f"
+    "proof-oracle/src/work.rs": "02ec9c497fc305f2f4fc0b7927b01ac748917d6332996e0b5e3e5665b59d8fb7"
   },
   "commands": [
     "work-prepare",
+    "work-prepare-raw",
+    "work-reference-noise",
     "work-finalize",
     "pool-verify"
   ],

@@ -1,3 +1,7 @@
+Current revision **0.10.0**: [GPU-NOISE.md](GPU-NOISE.md). Step3: CUDA noise implemented; full-array official CPU checks passed, real GPU validation pending. Raw matrices and Merkle remain CPU. No new hashrate claim.
+
+The entries below describe historical revisions; use only the current task above.
+
 Current implementation: [PIPELINE-REBUILD.md](PIPELINE-REBUILD.md). Steps1–2 implemented/local-tested: persistent worker, reusable buffers, mapped RAM work and overlapped CPU preparation. New GPU path untested; no measured speedup.
 
 Next measurement: [RATE-STABILITY.md](RATE-STABILITY.md) — candidates/s and full-cycle costs, one bounded540s Mint4090 window. First real share accepted; no SRBMiner speedup claim.

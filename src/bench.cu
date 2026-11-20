@@ -1,4 +1,5 @@
 #include "filter.cuh"
+#include "noise.cuh"
 #include "paused_guard.hpp"
 #include "pipeline_fixture.hpp"
 #include "mining_work.hpp"
@@ -159,13 +160,13 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false;int paused_pid=0;uint64_t paused_ticks=0;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin",pipeline_fixture,pipeline_export,work_input,work_output;
+    bool allow=false,concurrent=false;int paused_pid=0;uint64_t paused_ticks=0;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin",pipeline_fixture,pipeline_export,work_input,work_output,noise_reference_path;
     Shape shape{2048,6144,4096,128,16};ValidationPlan plan;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
-        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker] [--device N]\n"
-          <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
+        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|noise-check] [--device N]\n"
+          <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
           <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|512 --stage-k 32|64] [--allow-concurrent-miner]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
@@ -178,6 +179,7 @@ int main(int argc,char**argv){
       else if(s=="--mode")mode=v;else if(s=="--device")device=std::stoi(v);
       else if(s=="--stage-k")stage_k=std::stoi(v);
       else if(s=="--candidate")candidate=std::stoi(v);
+      else if(s=="--noise-reference")noise_reference_path=v;
       else if(s=="--work-input")work_input=v;
       else if(s=="--work-output")work_output=v;
       else if(s=="--pipeline-fixture")pipeline_fixture=v;
@@ -192,17 +194,18 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker")||(candidate!=128&&candidate!=256&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256)||device<0||device>31)
+    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="noise-check")||(candidate!=128&&candidate!=256&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256)||device<0||device>31)
       throw std::runtime_error("invalid options");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
-    if(mode=="worker"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
+    if(mode=="worker"||mode=="noise-check"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
     shape.validate();check(cudaSetDevice(device));cudaDeviceProp prop{};check(cudaGetDeviceProperties(&prop,device));
     if(prop.major!=8||(prop.minor!=6&&prop.minor!=9))throw std::runtime_error("This experimental build targets SM86/SM89 only");
     char pci[32];check(cudaDeviceGetPCIBusId(pci,sizeof(pci),device));
     std::cout<<"{\"phase\":\"device\",\"name\":"<<quoted(prop.name)<<",\"pci\":"<<quoted(pci)
       <<",\"SMs\":"<<prop.multiProcessorCount<<",\"concurrent_miner_detected\":"<<(miner?"true":"false")<<"}\n";
+    if(mode=="noise-check"){check_gpu_noise(work_input,noise_reference_path);return 0;}
     if(mode=="worker"){if(miner&&(!paused_pid||!paused_ticks))throw std::runtime_error("persistent worker requires paused miner identity");
       mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");});return 0;}
     if(mode=="mine-batch"){mine_batch(work_input,work_output);return 0;}

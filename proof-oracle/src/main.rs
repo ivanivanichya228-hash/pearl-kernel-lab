@@ -38,6 +38,8 @@ fn verify_outputs(out:&Path,file:&Path)->Result<()> {
 }
 fn main()->Result<()> {
  let args:Vec<String>=std::env::args().collect();
+ if args.len()==5 && args[1]=="work-prepare-raw" {return work::prepare_raw(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
+ if args.len()==4 && args[1]=="work-reference-noise" {return work::reference_noise(Path::new(&args[2]),Path::new(&args[3]));}
  if args.len()==5 && args[1]=="work-prepare" {return work::prepare(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==5 && args[1]=="work-finalize" {return work::finalize(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==6 && args[1]=="batch-prepare" {ensure!(args[5]=="actual" || args[5]=="synthetic-mid", "batch target mode must be actual or synthetic-mid");

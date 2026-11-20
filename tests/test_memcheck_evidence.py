@@ -19,3 +19,13 @@ class FilterEvidenceTests(unittest.TestCase):
   g.validate_memcheck(good,0,'filter-check')
   with self.assertRaises(ValueError):g.validate_memcheck(good.replace('195','194'),0,'filter-check')
   with self.assertRaises(ValueError):g.validate_memcheck(good,0,'check')
+
+class NoiseEvidenceTests(unittest.TestCase):
+ def test_requires_full_byte_comparison(self):
+  import json
+  good={'phase':'noise_correctness','passed':True,'all_A_B_bytes_checked':True,'matrix_bytes':131072,'rank':128}
+  g.validate_memcheck(json.dumps(good)+'\nERROR SUMMARY: 0 errors',0,'noise-check')
+  for changed in ({'all_A_B_bytes_checked':False},{'passed':False},{'matrix_bytes':0},{'rank':1}):
+   with self.assertRaises(ValueError):g.validate_memcheck(json.dumps({**good,**changed})+'\nERROR SUMMARY: 0 errors',0,'noise-check')
+ def test_noise_sanitizer_allowed_with_budget(self):
+  self.assertEqual(g.validation_budget(2,0,1,60,'noise-check',True),0)

@@ -131,8 +131,8 @@ async def child(argv,timeout,guard=None,log_path=None):
   record('work_stage_end',outcome=outcome,elapsed_seconds=time.monotonic()-started,returncode=proc.returncode if proc else None)
 
 class Backend:
- def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None,persistent=False,engine_args=()):
-  self.oracle=oracle;self.engine=engine;self.profile_path=profile_path;self.cpu=cpu;self.guard=guard;self.timeout=timeout;self.evidence=evidence;self.profile=Profile.parse(json.loads(profile_path.read_text()));self.metrics=Performance(self.profile);self.service=None
+ def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None,persistent=False,engine_args=(),gpu_noise=False):
+  self.oracle=oracle;self.engine=engine;self.profile_path=profile_path;self.cpu=cpu;self.guard=guard;self.timeout=timeout;self.evidence=evidence;self.profile=Profile.parse(json.loads(profile_path.read_text()));self.metrics=Performance(self.profile);self.service=None;self.gpu_noise=gpu_noise
   if persistent:
    from persistent_engine import PersistentEngine
    argv=[self.engine,'--serve'] if cpu else [self.engine,'--run-gpu','--mode','worker','--allow-concurrent-miner',*map(str,engine_args)]
@@ -147,7 +147,7 @@ class Backend:
   if evidence:
    evidence.mkdir(mode=0o700);(evidence/'context.json').write_text(json.dumps({'job_fingerprint':Job.parse(raw).fingerprint()}))
   jobfile=root/'notify.json';jobfile.write_text(json.dumps(raw));work=root/'work';hits=root/'hits.json';proofs=root/'proofs'
-  await self.stage('prepare',[self.oracle,'work-prepare',jobfile,self.profile_path,work],evidence)
+  await self.stage('prepare',[self.oracle,'work-prepare-raw' if self.gpu_noise else 'work-prepare',jobfile,self.profile_path,work],evidence)
   return {'raw':raw,'root':root,'work':work,'hits':hits,'proofs':proofs,'evidence':evidence}
  async def finish(self,prepared,service=None):
   raw,root,work,hits,proofs,evidence=(prepared[x] for x in ('raw','root','work','hits','proofs','evidence'))
@@ -163,6 +163,7 @@ class Backend:
    cmd=[self.engine,work/'work.bin',hits] if self.cpu else [self.engine,'--run-gpu','--mode','mine-batch','--work-input',work/'work.bin','--work-output',hits,'--allow-concurrent-miner']
    await self.stage('GPU',cmd,evidence)
   result=json.loads(hits.read_text())
+  if self.gpu_noise and (result.get('raw_noise_input') is not True or result.get('noise_backend')!=('CPU-reference' if self.cpu else 'GPU')):raise ChildFailure('Requested GPU-noise mode did not execute')
   if not isinstance(result.get('hits'),list):raise ChildFailure('Missing hit list')
   metadata=json.loads((work/'work.json').read_text());expected=(self.profile.m//len(self.profile.rows))*(self.profile.n//len(self.profile.columns))
   if metadata.get('groups')!=expected or metadata.get('job_fingerprint')!=Job.parse(raw).fingerprint() or any(result.get(k)!=metadata.get(k) for k in ('batch_id','job_fingerprint')):raise ChildFailure('Measured work context differs')
@@ -271,6 +272,7 @@ async def main_async(args):
    raise ValueError('Use the bounded mine-batch check under external sanitizer/controller, not a persistent sanitizer wrapper')
  guard=None if args.mock_cpu else gpu_guard(args.gpu,args.expected_power_limit_w,args.paused_pid,args.paused_start_ticks)
  if guard:guard()
+ if args.gpu_noise and not args.pipeline:raise ValueError('GPU noise requires the persistent RAM pipeline')
  validate_runtime(args.duration,args.extended_test,args.stop_after_accepted,args.measure_stability)
  if not 0<=args.max_batches<=100:raise ValueError('Invalid max batches')
  if args.gpu:os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID';os.environ['CUDA_VISIBLE_DEVICES']=args.gpu
@@ -283,20 +285,20 @@ async def main_async(args):
   from ram_workspace import RamWorkspace
   ram=RamWorkspace(profile,args.ram_dir)
   (args.evidence/'ram-workspace.json').write_text(json.dumps(ram.describe()))
- backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence,persistent=args.pipeline,engine_args=['--paused-pid',args.paused_pid,'--paused-start-ticks',args.paused_start_ticks] if args.pipeline and not args.mock_cpu else [])
+ backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence,persistent=args.pipeline,engine_args=['--paused-pid',args.paused_pid,'--paused-start-ticks',args.paused_start_ticks] if args.pipeline and not args.mock_cpu else [],gpu_noise=args.gpu_noise)
  counts=Counts();finished=False
  try:
   await run(host,port,config,profile,backend,ram.path if ram else args.workdir,duration=args.duration,max_batches=args.max_batches,enable_submit=args.enable_submit,reconnects=0,stop_on_reject=not args.mock_cpu,stop_after_accepted=args.stop_after_accepted,counts=counts,evidence=args.evidence,pipeline=args.pipeline);finished=True
  finally:
   if backend.service:await backend.service.close()
   if ram:ram.cleanup()
-  performance=backend.metrics.snapshot();performance['compute_backend']='CPU-reference' if args.mock_cpu else 'GPU';performance['overlap_enabled']=args.pipeline
+  performance=backend.metrics.snapshot();performance['compute_backend']='CPU-reference' if args.mock_cpu else 'GPU';performance['overlap_enabled']=args.pipeline;performance['GPU_noise_requested']=args.gpu_noise
   if backend.service:performance['persistent_engine']=backend.service.describe()
   if ram:performance['RAM_workspace_cleaned']=not ram.path.exists()
   (args.evidence/'performance.json').write_text(json.dumps(performance,indent=2))
   emit('final',scope='mock' if args.mock_cpu else 'live-pool',outcome='finished' if finished else 'interrupted',**counts.public(),performance=performance)
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--pipeline',action='store_true');p.add_argument('--ram-dir',type=Path,default=Path('/dev/shm'));p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--measure-stability',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--pipeline',action='store_true');p.add_argument('--gpu-noise',action='store_true');p.add_argument('--ram-dir',type=Path,default=Path('/dev/shm'));p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--measure-stability',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
  try:asyncio.run(main_async(args))
  except KeyboardInterrupt:raise SystemExit(130)
  except Exception as e:emit('failed',category=type(e).__name__);raise SystemExit(1)
