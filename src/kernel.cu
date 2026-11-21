@@ -56,6 +56,7 @@ __device__ __forceinline__ void prefetch(int8_t* stage, const int8_t* a,
 }
 
 #include "triple_stage.cuh"
+#include "occupancy_stage.cuh"
 
 template<int Threads, int ProofN, bool Debug, int StageK, bool MatrixLoads = false, bool TwoCTA = false>
 __global__ __launch_bounds__(Threads, 1)
@@ -239,7 +240,13 @@ cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
   try { p.validate(); } catch (...) { return cudaErrorInvalidValue; }
   if (!a || !bt || !out || (threads != 128 && threads != 256 && threads != 384 && threads != 512)) return cudaErrorInvalidValue;
   if(triple_stage){
-    if(threads!=384||stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
+    if(threads==256){
+      if(stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
+      if(p.proof_n==8){if(matrix)return occupancy_run<8,true>(a,bt,out,matrix,p,stream);return occupancy_run<8,false>(a,bt,out,matrix,p,stream);}
+      if(p.proof_n!=16)return cudaErrorInvalidValue;
+      if(matrix)return occupancy_run<16,true>(a,bt,out,matrix,p,stream);return occupancy_run<16,false>(a,bt,out,matrix,p,stream);
+    }
+    if((threads!=384&&threads!=256)||stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
     if(p.proof_n==8){if(matrix)return triple_run<8,true>(a,bt,out,matrix,p,stream);return triple_run<8,false>(a,bt,out,matrix,p,stream);}
     if(matrix)return triple_run<16,true>(a,bt,out,matrix,p,stream);return triple_run<16,false>(a,bt,out,matrix,p,stream);
   }
@@ -277,7 +284,13 @@ cudaError_t resource_info(int threads, int pn, bool debug,
                          cudaFuncAttributes* attr, int* blocks, int stage_k, bool matrix_loads, bool two_cta, bool triple_stage) {
   if (!attr || !blocks) return cudaErrorInvalidValue;
   if(triple_stage){
-    if(threads!=384||stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
+    if(threads==256){
+      if(stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
+      if(pn==8){if(debug)return occupancy_info<8,true>(attr,blocks);return occupancy_info<8,false>(attr,blocks);}
+      if(pn!=16)return cudaErrorInvalidValue;
+      if(debug)return occupancy_info<16,true>(attr,blocks);return occupancy_info<16,false>(attr,blocks);
+    }
+    if((threads!=384&&threads!=256)||stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
     if(pn==8){if(debug)return triple_info<8,true>(attr,blocks);return triple_info<8,false>(attr,blocks);}
     if(pn!=16)return cudaErrorInvalidValue;
     if(debug)return triple_info<16,true>(attr,blocks);return triple_info<16,false>(attr,blocks);

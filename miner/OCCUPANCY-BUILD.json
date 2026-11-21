@@ -1,0 +1,14 @@
+{
+  "compiler": "CUDA13.0.88",
+  "SM89_PN16_registers": 117,
+  "SM89_PN8_registers": 125,
+  "stack_bytes": 0,
+  "spill_bytes": 0,
+  "shared_bytes": 49152,
+  "CPU_tests_passed": 109,
+  "GPU_tested": false,
+  "power_310W_proven": false,
+  "live_kernel_enabled": false,
+  "binary_sha256": "6580051b2064e367c8044c6f76e848a3b5192cd641ecafbbe316bd1b9303b526",
+  "gzip_sha256": "e349a77cca0030d178885821e1ee0446c1acf0ba1124a3e77e72adb21a61e7f5"
+}

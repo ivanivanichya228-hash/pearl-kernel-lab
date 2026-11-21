@@ -143,16 +143,16 @@ void verify384(const std::string&root,bool matrix_loads=false){
  }
  std::cout<<"{\"matrix_loads\":"<<(matrix_loads?"true":"false")<<",\"phase\":\"kernel384_correctness\",\"passed\":true,\"fixtures\":6,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true,\"other_kernels_executed\":false}\n";
 }
-void verify_triple(const std::string&root){
+void verify_triple(const std::string&root,int threads=384){
  for(int i=0;i<6;++i){auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");
   Buffer<int8_t>a(f.a.size()),b(f.bt.size());Buffer<uint32_t>out(f.golden.transcript.size());Buffer<int32_t>matrix(f.golden.matrix.size());a.put(f.a);b.put(f.bt);
   out.put(std::vector<uint32_t>(f.golden.transcript.size(),0xa5a5a5a5u));matrix.put(std::vector<int32_t>(f.golden.matrix.size(),0x5a5a5a5a));
-  check(launch(a.p,b.p,out.p,matrix.p,f.p,384,nullptr,64,false,false,true));check(cudaDeviceSynchronize());
+  check(launch(a.p,b.p,out.p,matrix.p,f.p,threads,nullptr,64,false,false,true));check(cudaDeviceSynchronize());
   if(out.get()!=f.golden.transcript||matrix.get()!=f.golden.matrix)throw std::runtime_error("triple_stage matrix/transcript fixture="+std::to_string(i));
-  out.put(std::vector<uint32_t>(f.golden.transcript.size(),0xa5a5a5a5u));check(launch(a.p,b.p,out.p,nullptr,f.p,384,nullptr,64,false,false,true));check(cudaDeviceSynchronize());
+  out.put(std::vector<uint32_t>(f.golden.transcript.size(),0xa5a5a5a5u));check(launch(a.p,b.p,out.p,nullptr,f.p,threads,nullptr,64,false,false,true));check(cudaDeviceSynchronize());
   if(out.get()!=f.golden.transcript)throw std::runtime_error("triple_stage non-debug fixture="+std::to_string(i));
  }
- for(int pn:{8,16}){cudaFuncAttributes attr{};int blocks=0;check(resource_info(384,pn,false,&attr,&blocks,64,false,false,true));if(attr.localSizeBytes||attr.numRegs>168||blocks<1)throw std::runtime_error("triple_stage resources/spills/occupancy");
+ for(int pn:{8,16}){cudaFuncAttributes attr{};int blocks=0;check(resource_info(threads,pn,false,&attr,&blocks,64,false,false,true));if(attr.localSizeBytes||attr.numRegs>(threads==256?128:168)||blocks<(threads==256?2:1))throw std::runtime_error("triple_stage resources/spills/occupancy");
   std::cout<<"{\"triple_stage\":true,\"matrix_loads\":"<<"false"<<",\"phase\":\"triple_stage_resources\",\"proof_n\":"<<pn<<",\"pipeline_stages\":"<<(pn==16?3:2)<<",\"registers\":"<<attr.numRegs<<",\"local_bytes\":"<<attr.localSizeBytes<<",\"active_blocks\":"<<blocks<<"}\n";
  }
  std::cout<<"{\"triple_stage\":true,\"matrix_loads\":"<<"false"<<",\"phase\":\"triple_stage_correctness\",\"passed\":true,\"fixtures\":6,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true,\"other_kernels_executed\":false}\n";
@@ -258,7 +258,7 @@ int main(int argc,char**argv){
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
-        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters|two-cta-check|two-cta-compare|triple-check|triple-compare] [--device N]\n"
+        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|occupancy-check|occupancy-compare|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters|two-cta-check|two-cta-compare|triple-check|triple-compare] [--device N]\n"
           <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
           <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads] [--two-cta] [--triple-stage]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
@@ -290,19 +290,21 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="overlap-worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare"&&mode!="matrix-check"&&mode!="matrix-compare"&&mode!="kernel-diagnose"&&mode!="kernel-counters"&&mode!="two-cta-check"&&mode!="two-cta-compare"&&mode!="triple-check"&&mode!="triple-compare")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
+    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="overlap-worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare"&&mode!="matrix-check"&&mode!="matrix-compare"&&mode!="kernel-diagnose"&&mode!="kernel-counters"&&mode!="two-cta-check"&&mode!="two-cta-compare"&&mode!="triple-check"&&mode!="triple-compare"&&mode!="occupancy-check"&&mode!="occupancy-compare")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
       throw std::runtime_error("invalid options");
     if(matrix_loads&&(candidate!=384||stage_k!=64||(mode!="matrix-check"&&mode!="matrix-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("matrix loads require384/stage64 and matrix mode/worker/mine-batch");
     if((mode=="matrix-check"||mode=="matrix-compare")&&(!matrix_loads||candidate!=384))throw std::runtime_error("matrix mode requires --matrix-loads --candidate 384");
     if((mode=="kernel-diagnose"||mode=="kernel-counters")&&(candidate!=384||stage_k!=64||matrix_loads))throw std::runtime_error("diagnostics require unchanged scalar384/stage64");
     if(two_cta&&(candidate!=256||stage_k!=64||matrix_loads||(mode!="two-cta-check"&&mode!="two-cta-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("two-cta requires256/stage64 without matrix loads, explicit new modes/worker/mine-batch");
     if((mode=="two-cta-check"||mode=="two-cta-compare")&&!two_cta)throw std::runtime_error("two-cta mode needs --two-cta");
-    if(triple_stage&&(candidate!=384||stage_k!=64||matrix_loads||two_cta||(mode!="triple-check"&&mode!="triple-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("triple-stage requires384/stage64 and explicit triple modes/worker/mine-batch, no other candidates");
-    if((mode=="triple-check"||mode=="triple-compare")&&!triple_stage)throw std::runtime_error("triple mode requires --triple-stage");
+    if(triple_stage&&((candidate!=384&&candidate!=256)||stage_k!=64||matrix_loads||two_cta||(mode!="triple-check"&&mode!="triple-compare"&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("triple-stage requires384/stage64 and explicit triple modes/worker/mine-batch, no other candidates");
+    if((mode=="triple-check"||mode=="triple-compare"||mode=="occupancy-check"||mode=="occupancy-compare")&&!triple_stage)throw std::runtime_error("triple mode requires --triple-stage");
+    if((mode=="occupancy-check"||mode=="occupancy-compare")&&(!triple_stage||candidate!=256||stage_k!=64))throw std::runtime_error("occupancy mode requires --triple-stage --candidate256 --stage-k64");
+    if(triple_stage&&candidate==256&&mode!="occupancy-check"&&mode!="occupancy-compare")throw std::runtime_error("lane-triple256 is validation-only until GPU correctness and performance pass");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
-    if(mode=="worker"||mode=="overlap-worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"||mode=="matrix-check"||mode=="matrix-compare"||mode=="kernel-diagnose"||mode=="kernel-counters"||mode=="two-cta-check"||mode=="two-cta-compare"||mode=="triple-check"||mode=="triple-compare"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
+    if(mode=="worker"||mode=="overlap-worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"||mode=="matrix-check"||mode=="matrix-compare"||mode=="kernel-diagnose"||mode=="kernel-counters"||mode=="two-cta-check"||mode=="two-cta-compare"||mode=="triple-check"||mode=="triple-compare"||mode=="occupancy-check"||mode=="occupancy-compare"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
     shape.validate();check(cudaSetDevice(device));cudaDeviceProp prop{};check(cudaGetDeviceProperties(&prop,device));
     if(prop.major!=8||(prop.minor!=6&&prop.minor!=9))throw std::runtime_error("This experimental build targets SM86/SM89 only");
     char pci[32];check(cudaDeviceGetPCIBusId(pci,sizeof(pci),device));
@@ -331,6 +333,18 @@ int main(int argc,char**argv){
       if(control.get()!=out.get())throw std::runtime_error("post-comparison transcript mismatch");
       const double ratio=(times[0]+times[3])/(times[1]+times[2]);const bool passed=ratio>1.02&&std::max(times[1],times[2])<std::min(times[0],times[3]);
       std::cout<<"{\"phase\":\"matrix_comparison\",\"resident_input_only\":true,\"baseline_threads\":384,\"candidate_threads\":384,\"stage_k_both\":64,\"baseline_matrix_loads\":false,\"candidate_matrix_loads\":true,\"post_compare_transcript_equal\":true,\"speed_ratio\":"<<ratio<<",\"candidate_faster_for_live\":"<<(passed?"true":"false")<<",\"live_hashrate_measured\":false}\n";return 0;
+    }
+    if(mode=="occupancy-check"){verify_triple(fixtures,256);return 0;}
+    if(mode=="occupancy-compare"){
+      if(shape.m!=8192||shape.n!=8192||shape.k!=4096||shape.rank!=256||shape.proof_n!=16||plan.rounds!=1||plan.duration!=1||plan.warmup!=0.25)throw std::runtime_error("exact bounded8192 profile required");
+      verify_triple(fixtures,256);
+      Buffer<int8_t>da((std::size_t(shape.m)*shape.k)),db((std::size_t(shape.n)*shape.k));
+      std::vector<int8_t>ha((std::size_t(shape.m)*shape.k)),hb((std::size_t(shape.n)*shape.k));for(std::size_t i=0;i<ha.size();++i)ha[i]=int8_t(int(i%127)-63);for(std::size_t i=0;i<hb.size();++i)hb[i]=int8_t(int((i*7)%127)-63);da.put(ha);db.put(hb);
+      Buffer<uint32_t>out(shape.groups()*16),control(shape.groups()*16);
+      double times[4];for(int leg=0;leg<4;++leg){const int threads=(leg==0||leg==3)?384:256;times[leg]=measure(da.p,db.p,out.p,shape,threads,1,pci,64,.25,0,leg,false,false,true);}
+      check(launch(da.p,db.p,out.p,nullptr,shape,256,nullptr,64,false,false,true));check(launch(da.p,db.p,control.p,nullptr,shape,384,nullptr,64,false,false,true));check(cudaDeviceSynchronize());if(out.get()!=control.get())throw std::runtime_error("occupancy full-profile transcript mismatch");
+      const double ratio=(times[0]+times[3])/(times[1]+times[2]);
+      std::cout<<"{\"phase\":\"occupancy_comparison\",\"baseline\":\"triple384\",\"candidate\":\"lane-triple256\",\"speed_ratio\":"<<ratio<<",\"post_compare_transcript_equal\":true,\"live_hashrate_measured\":false,\"power_target_guaranteed\":false}\n";return 0;
     }
     if(mode=="triple-compare"){
       if(shape.m!=8192||shape.n!=8192||shape.k!=4096||shape.rank!=256||shape.proof_n!=16||plan.rounds!=1||plan.duration!=1||plan.warmup!=0.25)throw std::runtime_error("kernel comparison requires exact bounded8192 profile, 1s legs/.25s warmup");
