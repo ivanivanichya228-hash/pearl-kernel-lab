@@ -1,0 +1,82 @@
+{
+  "parent": "f561218533eff7466679abbbef01bb401d069f0d",
+  "compiler": "CUDA13.0.88",
+  "variants": [
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi16ELb0ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi16ELb1ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi8ELb0ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi8ELb1ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi16ELb0ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi16ELb1ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi8ELb0ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__35c35c1b_9_kernel_cu_2c5d51e610pearl_int8ILi256ELi8ELb1ELi64ELb0ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 107,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    }
+  ],
+  "python_tests_passed": 94,
+  "independent_full_matrix_transcript_model_passed": true,
+  "dynamic_shared_bytes": {
+    "proof8": 49152,
+    "proof16": 45056
+  },
+  "occupancy_target_blocks": 2,
+  "actual_GPU_occupancy_checked": false,
+  "native_invalid_selection_refused": 3,
+  "GPU_executed": false,
+  "hardware_speedup": null,
+  "faster_than_SRBMiner_established": false
+}
