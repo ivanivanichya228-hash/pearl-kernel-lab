@@ -1,3 +1,7 @@
+Current revision **0.11.0**: [ROOT-PREPARE.md](ROOT-PREPARE.md). CPU root-only preparation and parallel fresh RNG; local full-profile preparation benchmark 4.08x, independent official roots/proofs passed. New rig throughput not measured. CUDA unchanged; do not repeat old GPU gates.
+
+Earlier revision notes follow.
+
 Current revision **0.10.0**: [GPU-NOISE.md](GPU-NOISE.md). Step3: CUDA noise implemented; full-array official CPU checks passed, real GPU validation pending. Raw matrices and Merkle remain CPU. No new hashrate claim.
 
 The entries below describe historical revisions; use only the current task above.

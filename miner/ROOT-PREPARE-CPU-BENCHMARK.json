@@ -1,0 +1,131 @@
+{
+  "scope": "same-host CPU-only full-profile preparation ABBA; not GPU/live-miner or SRBMiner comparison",
+  "GPU_executed": false,
+  "external_network_used": false,
+  "rayon_threads": 4,
+  "profile": {
+    "m": 131072,
+    "n": 131072,
+    "k": 4096,
+    "rank": 256,
+    "proof_columns": 16
+  },
+  "before_sha256": "eb6651e7e741f3b3df069a2202956346232e769fe85c22e03c5a62db465c17c4",
+  "after_sha256": "2b009ef7afb1a2fce1be5f93da2a10e3f80019d4cab89edbf2eb3f0a354049bb",
+  "runs": [
+    {
+      "warmup_excluded": true,
+      "full_official_root_audit_passed": false,
+      "order": 0,
+      "variant": "before",
+      "wall_seconds": 3.8956829250000737,
+      "stage_seconds": {
+        "raw_random_matrices": 2.232254594,
+        "commitments": 1.238906848,
+        "raw_files": 0.330356048,
+        "raw_manifest_write": 2.5e-07,
+        "file_close": 7.51e-07,
+        "total": 3.801688829
+      },
+      "batch_id": "89deffdd60e89acead6f01e0f1537887faba6640daa4f0531a83b8cbfa0c5a9d",
+      "raw_array_bytes": 1073741824,
+      "commitment_backend": "full-official-trees"
+    },
+    {
+      "warmup_excluded": true,
+      "full_official_root_audit_passed": false,
+      "order": 1,
+      "variant": "after",
+      "wall_seconds": 0.49869869100007236,
+      "stage_seconds": {
+        "raw_random_matrices": 0.173592808,
+        "commitments": 0.081505493,
+        "raw_files": 0.210969024,
+        "raw_manifest_write": 2.1e-07,
+        "file_close": 5.71e-07,
+        "total": 0.466211496
+      },
+      "batch_id": "17e93c619666366b510c711b930ebdfaff8ff506f919a39f69e6256cb94ebac4",
+      "raw_array_bytes": 1073741824,
+      "commitment_backend": "official-root-only"
+    },
+    {
+      "warmup_excluded": false,
+      "full_official_root_audit_passed": true,
+      "order": 2,
+      "variant": "before",
+      "wall_seconds": 1.8774575620000178,
+      "stage_seconds": {
+        "raw_random_matrices": 0.634426997,
+        "commitments": 0.937219625,
+        "raw_files": 0.244215814,
+        "raw_manifest_write": 4.4e-07,
+        "file_close": 1.202e-06,
+        "total": 1.816317376
+      },
+      "batch_id": "b3398006c204165ed7f6406303e2c29a9621c12209dc2611d8c83b35a929be6a",
+      "raw_array_bytes": 1073741824,
+      "commitment_backend": "full-official-trees"
+    },
+    {
+      "warmup_excluded": false,
+      "full_official_root_audit_passed": true,
+      "order": 3,
+      "variant": "after",
+      "wall_seconds": 0.4804432999999335,
+      "stage_seconds": {
+        "raw_random_matrices": 0.174993122,
+        "commitments": 0.081360417,
+        "raw_files": 0.190130474,
+        "raw_manifest_write": 2.4e-07,
+        "file_close": 6.61e-07,
+        "total": 0.44664311
+      },
+      "batch_id": "8c579a18ccbcbb94333c3c3c5f84aa3489facb51feb27838142f92f8cf4a0442",
+      "raw_array_bytes": 1073741824,
+      "commitment_backend": "official-root-only"
+    },
+    {
+      "warmup_excluded": false,
+      "full_official_root_audit_passed": true,
+      "order": 4,
+      "variant": "after",
+      "wall_seconds": 0.5721953089999943,
+      "stage_seconds": {
+        "raw_random_matrices": 0.184897149,
+        "commitments": 0.083821563,
+        "raw_files": 0.270073383,
+        "raw_manifest_write": 2.61e-07,
+        "file_close": 5.7e-07,
+        "total": 0.539069634
+      },
+      "batch_id": "bc75c6588a89e7ca3938fa3b1d05b4398fed3429c00f984d29e05a5e88cb6c9c",
+      "raw_array_bytes": 1073741824,
+      "commitment_backend": "official-root-only"
+    },
+    {
+      "warmup_excluded": false,
+      "full_official_root_audit_passed": true,
+      "order": 5,
+      "variant": "before",
+      "wall_seconds": 2.4161996640000325,
+      "stage_seconds": {
+        "raw_random_matrices": 1.208633177,
+        "commitments": 0.882634711,
+        "raw_files": 0.268581028,
+        "raw_manifest_write": 3.31e-07,
+        "file_close": 5.9e-07,
+        "total": 2.36010251
+      },
+      "batch_id": "e03b9b452cbe85e027f10d8ccce68fdabbbc31cdaf04e877c3213e9a0d9e9220",
+      "raw_array_bytes": 1073741824,
+      "commitment_backend": "full-official-trees"
+    }
+  ],
+  "mean_wall_seconds": {
+    "before": 2.146828613000025,
+    "after": 0.5263193044999639
+  },
+  "ratio_before_over_after": 4.0789471232480174,
+  "temporary_RAM_cleaned": true
+}

@@ -9,7 +9,17 @@ use zk_pow::{circuit::pearl_noise::{generate_uniform_random_matrix,generate_perm
 use super::{pool,pipeline};
 // Every lower seven-bit pattern is equiprobable; [-64,63] is canonical signed INT7.
 // One CSPRNG fill amortizes RNG/distribution calls; no fixed seeds or repeated batches.
+#[cfg(test)]
 fn random_matrix(len:usize,rng:&mut impl RngCore)->Vec<u8>{let mut data=vec![0u8;len];rng.fill_bytes(&mut data);for x in &mut data{*x=(((*x&127) as i16)-64) as i8 as u8;}data}
+// Each bounded chunk gets its own fresh OS-seeded CSPRNG; streams are never
+// shared or derived from a fixed job seed. The target/proof distribution is unchanged.
+fn parallel_random_matrix(len:usize)->Vec<u8>{
+ let mut data=vec![0u8;len];
+ data.par_chunks_mut(4*1024*1024).for_each(|chunk|{
+  let mut rng=StdRng::from_os_rng();rng.fill_bytes(chunk);
+  for x in chunk{*x=(((*x&127) as i16)-64) as i8 as u8;}
+ });data
+}
 fn noisy_chunk(raw:&[u8],first:usize,k:usize,rank:usize,seed:&[u8;32],key:&[u8;32],perm:&[[u32;2]])->Result<Vec<u8>>{
  let mut data=vec![0u8;raw.len()];
  data.par_chunks_mut(k).enumerate().try_for_each(|(local,row)|->Result<()>{
@@ -25,10 +35,9 @@ fn prepare_mode(job_path:&Path,profile_path:&Path,out:&Path,gpu_noise:bool)->Res
  ensure!(m<=131072&&n<=131072&&k<=8192&&(m+n)*k<=(1usize<<31),"work memory bounds");
  let (_,_,target,fp)=pool::context(&job)?;let bound=penalized_target_bound(target,&cfg).ok_or_else(||anyhow::anyhow!("invalid target scaling"))?;
  let total=Instant::now();let started=Instant::now();
- let mut rng=StdRng::from_os_rng();
- let a=random_matrix(m*k,&mut rng);let bt=random_matrix(n*k,&mut rng);
+ let (a,bt)=rayon::join(||parallel_random_matrix(m*k),||parallel_random_matrix(n*k));
  timed("raw_random_matrices",started);let started=Instant::now();
- let (at,btree,public)=pipeline::trees(&job,&profile,&a,&bt)?;let id=pipeline::batch_id(&job,&at,&btree)?;let seeds=public.commitment_hash(public.job_key());
+ let public=pipeline::roots(&job,&profile,&a,&bt)?;let id=pipeline::batch_id_from_roots(&job,public.hash_a,public.hash_b)?;let seeds=public.commitment_hash(public.job_key());
  timed("commitments",started);let started=Instant::now();
  fs::create_dir(out)?;fs::write(out.join("job.json"),serde_json::to_vec(&job)?)?;fs::write(out.join("profile.json"),serde_json::to_vec(&profile)?)?;
  fs::write(out.join("raw-a.bin"),&a)?;fs::write(out.join("raw-bt.bin"),&bt)?;
@@ -49,8 +58,19 @@ fn prepare_mode(job_path:&Path,profile_path:&Path,out:&Path,gpu_noise:bool)->Res
  timed(if gpu_noise{"raw_manifest_write"}else{"noise_and_work_write"},started);let started=Instant::now();// All writes use unbuffered std::fs::File and write_all. The next process starts only
  // after success; cancelled work is deleted. Crash-durable storage is unnecessary here.
  file.flush()?;drop(file);timed("file_close",started);timed("total",total);
- fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true,"input_mode":if gpu_noise{"raw-for-GPU-noise"}else{"CPU-noised"}}))?)?;
+ fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true,"commitment_backend":"official-root-only","random_backend":"parallel-OS-seeded-CSPRNG","rayon_threads":rayon::current_num_threads(),"input_mode":if gpu_noise{"raw-for-GPU-noise"}else{"CPU-noised"}}))?)?;
  println!("Fresh real-target work prepared (no CPU GEMM / no network)");Ok(())
+}
+// Read-only audit uses the ORIGINAL full official trees, not the fast-root path.
+pub fn audit_roots(batch:&Path,out:&Path)->Result<()>{
+ ensure!(!out.exists(),"new audit output required");let job=pool::load(&batch.join("job.json"))?;let profile=pool::load(&batch.join("profile.json"))?;let cfg=pool::config(&profile)?;
+ let (m,n,k)=(pool::uint(&profile,"m")?,pool::uint(&profile,"n")?,pool::uint(&profile,"k")?);
+ let a=fs::read(batch.join("raw-a.bin"))?;let b=fs::read(batch.join("raw-bt.bin"))?;let(at,bt,public)=pipeline::trees(&job,&profile,&a,&b)?;
+ let (_,_,target,fp)=pool::context(&job)?;let id=pipeline::batch_id(&job,&at,&bt)?;let seeds=public.commitment_hash(public.job_key());let bound=penalized_target_bound(target,&cfg).ok_or_else(||anyhow::anyhow!("bound"))?;
+ let mut expected=b"PRLRAWN1".to_vec();for x in [m,n,k,cfg.rank as usize,cfg.cols_pattern.size() as usize]{expected.extend((x as u32).to_le_bytes());}
+ expected.extend(pool::unhex(&fp)?);expected.extend(pool::unhex(&id)?);expected.extend(seeds.1);expected.extend(seeds.0);let mut bytes=[0u8;32];bound.to_little_endian(&mut bytes);expected.extend(bytes);
+ ensure!(expected==fs::read(batch.join("work.bin"))?,"raw manifest differs from full official Merkle roots/seeds/target");let meta=pool::load(&batch.join("work.json"))?;ensure!(meta["batch_id"]==id&&meta["job_fingerprint"]==fp,"metadata context mismatch");
+ fs::write(out,serde_json::to_vec_pretty(&json!({"passed":true,"comparison":"all 188 header bytes versus independent full official Merkle trees","raw_array_bytes":a.len()+b.len(),"batch_id":id,"GPU_executed":false,"external_network_used":false}))?)?;Ok(())
 }
 pub fn reference_noise(batch:&Path,out:&Path)->Result<()>{
  ensure!(!out.exists(),"new reference path required");let job=pool::load(&batch.join("job.json"))?;let profile=pool::load(&batch.join("profile.json"))?;let cfg=pool::config(&profile)?;
@@ -82,5 +102,6 @@ mod tests{
    for is_a in [true,false]{let mut label=[0u8;32];label[..8].copy_from_slice(if is_a{b"A_tensor"}else{b"B_tensor"});let key=if is_a{seeds.1}else{seeds.0};let p=generate_permutation_matrix(&label,&key,k,rank);let got=noisy_chunk(&raw,first,k,rank,&label,&key,&p).unwrap();let want=if is_a{&expected.a}else{&expected.b};assert_eq!(got,want.iter().flatten().map(|&x|x as u8).collect::<Vec<_>>());}
   }
  }
+ #[test]fn parallel_random_int7_range_and_freshness(){let a=parallel_random_matrix(9*1024*1024+17);let b=parallel_random_matrix(a.len());assert_ne!(a,b);for chunk in a.chunks(4*1024*1024){let mut seen=[false;128];for &x in chunk{let v=x as i8;assert!((-64..=63).contains(&v));seen[(v as i16+64) as usize]=true;}if chunk.len()>1024{assert!(seen.iter().all(|&v|v));}}}
  #[test]fn packed_random_int7_range_and_freshness(){let a=random_matrix(65536,&mut StdRng::from_os_rng());let b=random_matrix(65536,&mut StdRng::from_os_rng());assert_ne!(a,b);assert!(a.iter().all(|&v|(-64..=63).contains(&(v as i8))));}
 }

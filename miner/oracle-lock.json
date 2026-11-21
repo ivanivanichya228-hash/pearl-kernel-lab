@@ -1,26 +1,27 @@
 {
   "archive": "oracle-linux-x86_64.gz",
-  "archive_size": 716829,
-  "archive_sha256": "58631f6ff63a4356241adc26a8bcc59683774e10616e4b694dac6a766d55e1d7",
-  "binary_size": 2020488,
-  "binary_sha256": "eb6651e7e741f3b3df069a2202956346232e769fe85c22e03c5a62db465c17c4",
+  "archive_size": 731660,
+  "archive_sha256": "a26386ff50f32e6e1de25fcac9c7e3d174d8869dc48b8794a4b3fcaa009e89b2",
+  "binary_size": 2057288,
+  "binary_sha256": "2b009ef7afb1a2fce1be5f93da2a10e3f80019d4cab89edbf2eb3f0a354049bb",
   "rustc": "1.90.0",
   "target": "x86_64-unknown-linux-gnu",
   "official_upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9",
   "sources_sha256": {
     "proof-oracle/Cargo.toml": "d981a5c14dc1f36879213810b580bb15726949742c6a055e7af09a4abe7a4ec9",
     "proof-oracle/Cargo.lock": "7a74bde4b008eea6708af150c142c88b1a45f65a9c82583d061e9b4d37effab5",
-    "proof-oracle/src/main.rs": "5f0a1d7f3bf52f526bea1f308ed2012855b42075654cb640168ea1abaf047490",
+    "proof-oracle/src/main.rs": "3ea8367a3cd474f124c85e46268fb169cb0c023cf075bb2a6f08c74093e0dae4",
     "proof-oracle/src/pool.rs": "a18c49cc130611af8e6373657f682041abf5ac3c86c1862d2bb3277f1d6c70da",
-    "proof-oracle/src/pipeline.rs": "e0804198f14e56f5be65e0c4d6fc7a70fc7a51b51a870ccf05a4f06fb856e65b",
-    "proof-oracle/src/work.rs": "02ec9c497fc305f2f4fc0b7927b01ac748917d6332996e0b5e3e5665b59d8fb7"
+    "proof-oracle/src/pipeline.rs": "ffa9f708b811f0f52bfebec15369773a780f2f9205e7f195e2ee8d8a32a97bbb",
+    "proof-oracle/src/work.rs": "573c9321d50d5b38b765d5e560d2596727eedb7179951a96d38d7839499a7f61"
   },
   "commands": [
     "work-prepare",
     "work-prepare-raw",
     "work-reference-noise",
     "work-finalize",
-    "pool-verify"
+    "pool-verify",
+    "work-audit-roots"
   ],
   "note": "No GPU/network code. Build source is included; this is the official pinned verifier bridge, not an official upstream binary distribution."
 }

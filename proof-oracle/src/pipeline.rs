@@ -21,6 +21,36 @@ pub(super) fn trees(job:&Value,profile:&Value,a:&[u8],bt:&[u8])->Result<(MerkleT
  let at=MerkleTree::new(&pad_to_chunk_boundary(a),key);let btree=MerkleTree::new(&pad_to_chunk_boundary(bt),key);
  public.hash_a=at.root();public.hash_b=btree.root();Ok((at,btree,public))
 }
+// Preparation needs only commitment roots. Keep full MerkleTree construction above
+// as the independent proof/finalize reference, including official padding semantics.
+pub(super) fn roots(job:&Value,profile:&Value,a:&[u8],bt:&[u8])->Result<PublicProofParams>{
+ let (_,header,_,_)=pool::context(job)?;let cfg=pool::config(profile)?;
+ let m=pool::uint(profile,"m")?;let n=pool::uint(profile,"n")?;let k=pool::uint(profile,"k")?;
+ ensure!(m<=131072&&n<=131072&&k<=8192&&(m+n)*k<=(1usize<<31)&&a.len()==m*k&&bt.len()==n*k,"raw commitment bounds");
+ let h=cfg.rows_pattern.size() as usize;let w=cfg.cols_pattern.size() as usize;
+ ensure!(m%h==0&&n%w==0&&cfg.rows_pattern.to_list()==(0..h as u32).collect::<Vec<_>>()&&cfg.cols_pattern.to_list()==(0..w as u32).collect::<Vec<_>>(),"contiguous complete tiles required");
+ let mut public=PublicProofParams{block_header:header,seed_derivation:SeedDerivation::Salted,mining_config:cfg,
+ hash_a:[0;32],hash_b:[0;32],hash_jackpot:[0;32],m:m.try_into()?,n:n.try_into()?,t_rows:0,t_cols:0,moe:None};
+ public.sanity_check()?;let key=public.job_key();
+ (public.hash_a,public.hash_b)=rayon::join(||commitment_root(a,key),||commitment_root(bt,key));
+ Ok(public)
+}
+fn commitment_root(data:&[u8],key:[u8;32])->[u8;32]{
+ let hasher=pearl_blake3::Blake3Hasher::with_key(key);
+ if data.len()%pearl_blake3::BLAKE3_CHUNK_LEN==0{hasher.hash(data)}
+ else{hasher.hash(&pad_to_chunk_boundary(data))}
+}
+pub(super) fn batch_id_from_roots(job:&Value,a:[u8;32],b:[u8;32])->Result<String>{let (_,_,_,fp)=pool::context(job)?;let mut bytes=b"pearl-batch-v1\0".to_vec();bytes.extend(pool::unhex(&fp)?);bytes.extend(a);bytes.extend(b);Ok(pool::hex(&Sha256::digest(&bytes)))}
+#[cfg(test)]
+mod root_tests{
+ use super::*;
+ #[test]fn roots_match_full_official_tree(){
+  for len in [1024,2048,3072,5120,65536,1048576,1049600,1,1023,1025]{
+   let data:Vec<u8>=(0..len).map(|i|(i*37) as u8).collect();
+   for key in [[0u8;32],[77u8;32]]{assert_eq!(commitment_root(&data,key),MerkleTree::new(&pad_to_chunk_boundary(&data),key).root(),"length={len}");}
+  }
+ }
+}
 pub(super) fn proof_for(index:usize,profile:&Value,at:&MerkleTree,bt:&MerkleTree)->Result<PlainProof>{
  let cfg=pool::config(profile)?;let m=pool::uint(profile,"m")?;let n=pool::uint(profile,"n")?;let k=pool::uint(profile,"k")?;
  let h=cfg.rows_pattern.size() as usize;let w=cfg.cols_pattern.size() as usize;ensure!(index<(m/h)*(n/w),"hit index out of range");
