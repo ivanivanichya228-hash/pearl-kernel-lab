@@ -157,6 +157,47 @@ void verify_triple(const std::string&root,int threads=384){
  }
  std::cout<<"{\"triple_stage\":true,\"matrix_loads\":"<<"false"<<",\"phase\":\"triple_stage_correctness\",\"passed\":true,\"fixtures\":6,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true,\"other_kernels_executed\":false}\n";
 }
+void verify_fused(const std::string&root){
+ for(int pn:{8,16}){cudaFuncAttributes attr{};int blocks=0;check(fused_resource_info(pn,&attr,&blocks));
+  if(attr.localSizeBytes||attr.numRegs>170||blocks<1)throw std::runtime_error("fused resources/spills");
+  std::cout<<"{\"phase\":\"fused_resources\",\"proof_n\":"<<pn<<",\"registers\":"<<attr.numRegs<<",\"local_bytes\":"<<attr.localSizeBytes<<",\"active_blocks\":"<<blocks<<"}\n";
+ }
+ for(int i=0;i<6;++i){auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");const uint32_t groups=uint32_t(f.p.groups());
+  Buffer<int8_t>a(f.a.size()),b(f.bt.size());a.put(f.a);b.put(f.bt);Buffer<CompactHit>hits(groups+1);Buffer<uint32_t>found(1);
+  HitGeometry geometry{32,32,uint32_t(f.p.n),uint32_t(f.p.n+64),uint32_t(f.p.proof_n)};
+  KeyTarget context{};for(int j=0;j<8;++j)context.key[j]=0x12345678u+uint32_t(j);
+  for(int mixed=0;mixed<2;++mixed){for(auto&x:context.target)x=0xffffffffu;if(mixed)context.target[7]=0x7fffffffu;
+   std::vector<CompactHit>expected;
+   for(uint32_t g=0;g<groups;++g){uint32_t h[8];jackpot_hash64(f.golden.transcript.data()+std::size_t(g)*16,context.key,h);
+    if(hash_meets_target(h,context.target)){CompactHit hit{};hit.index=uint32_t(compact_global_index(g,geometry));std::copy_n(f.golden.transcript.data()+std::size_t(g)*16,16,hit.transcript);expected.push_back(hit);}}
+   for(uint32_t capacity:{0u,1u,groups}){std::vector<CompactHit>initial(groups+1);initial[capacity].index=0xdeadbeefu;initial[capacity].transcript[0]=0xcafef00du;hits.put(initial);found.put({0});
+    check(launch_fused(a.p,b.p,f.p,context,hits.p,found.p,capacity,geometry,nullptr));check(cudaDeviceSynchronize());
+    if(found.get()[0]!=expected.size())throw std::runtime_error("fused target count mismatch fixture="+std::to_string(i));
+    auto got=hits.get();if(got[capacity].index!=0xdeadbeefu||got[capacity].transcript[0]!=0xcafef00du)throw std::runtime_error("fused queue overflow");
+    const std::size_t written=std::min<std::size_t>(capacity,expected.size());std::vector<uint32_t>seen;
+    for(std::size_t j=0;j<written;++j){const auto&h=got[j];auto e=std::lower_bound(expected.begin(),expected.end(),h.index,[](const CompactHit&x,uint32_t idx){return x.index<idx;});
+     if(e==expected.end()||e->index!=h.index||!std::equal(e->transcript,e->transcript+16,h.transcript))throw std::runtime_error("fused transcript/index mismatch");seen.push_back(h.index);}
+    std::sort(seen.begin(),seen.end());if(std::adjacent_find(seen.begin(),seen.end())!=seen.end())throw std::runtime_error("fused duplicate hit");
+   }
+  }
+ }
+ std::cout<<"{\"phase\":\"fused_correctness\",\"passed\":true,\"fixtures\":6,\"exact_transcripts_all_groups\":true,\"mixed_target_and_capacity_edges\":true}\n";
+}
+double measure_fused(const int8_t*a,const int8_t*b,uint32_t*transcripts,Shape shape,bool fused,const char*pci,int leg){
+ Buffer<uint32_t>count(1);Buffer<CompactHit>hits(1);KeyTarget context{};for(int j=0;j<8;++j)context.key[j]=uint32_t(j+1);
+ HitGeometry geometry{0,0,uint32_t(shape.n),uint32_t(shape.n),uint32_t(shape.proof_n)};
+ cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
+ auto launch_one=[&]{check(cudaMemsetAsync(count.p,0,4,stream));
+  if(fused)check(launch_fused(a,b,shape,context,hits.p,count.p,1,geometry,stream));
+  else{check(launch(a,b,transcripts,nullptr,shape,384,stream,64,false,false,true));check(launch_compact_filter(transcripts,uint32_t(shape.groups()),context,hits.p,count.p,1,geometry,stream));}};
+ for(int i=0;i<3;++i)launch_one();check(cudaStreamSynchronize(stream));
+ check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeGlobal));for(int i=0;i<16;++i)launch_one();cudaGraph_t graph;check(cudaStreamEndCapture(stream,&graph));cudaGraphExec_t exec;check(cudaGraphInstantiate(&exec,graph,nullptr,nullptr,0));
+ auto start=std::chrono::steady_clock::now();while(std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count()<.25){check(cudaGraphLaunch(exec,stream));check(cudaStreamSynchronize(stream));}
+ cudaEvent_t begin,end;check(cudaEventCreate(&begin));check(cudaEventCreate(&end));Power power(pci);power.start();std::vector<double>times;start=std::chrono::steady_clock::now();
+ do{check(cudaEventRecord(begin,stream));check(cudaGraphLaunch(exec,stream));check(cudaEventRecord(end,stream));check(cudaEventSynchronize(end));float ms=0;check(cudaEventElapsedTime(&ms,begin,end));times.push_back(ms/16);}while(std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count()<1);
+ std::sort(times.begin(),times.end());double ms=times[times.size()/2];auto telemetry=power.json();std::cout<<"{\"phase\":\"fused_benchmark\",\"fused\":"<<(fused?"true":"false")<<",\"leg\":"<<leg<<",\"combined_compute_filter_ms\":"<<ms<<",\"telemetry\":"<<telemetry<<"}\n";
+ cudaGraphExecDestroy(exec);cudaGraphDestroy(graph);cudaEventDestroy(begin);cudaEventDestroy(end);cudaStreamDestroy(stream);return ms;
+}
 void verify_two_cta(const std::string&root){
  for(int i=0;i<6;++i){auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");
   Buffer<int8_t>a(f.a.size()),b(f.bt.size());Buffer<uint32_t>out(f.golden.transcript.size());Buffer<int32_t>matrix(f.golden.matrix.size());a.put(f.a);b.put(f.bt);
@@ -258,7 +299,7 @@ int main(int argc,char**argv){
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
-        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|occupancy-check|occupancy-compare|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters|two-cta-check|two-cta-compare|triple-check|triple-compare] [--device N]\n"
+        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|fused-check|fused-compare|occupancy-check|occupancy-compare|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters|two-cta-check|two-cta-compare|triple-check|triple-compare] [--device N]\n"
           <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
           <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads] [--two-cta] [--triple-stage]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
@@ -290,21 +331,22 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="overlap-worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare"&&mode!="matrix-check"&&mode!="matrix-compare"&&mode!="kernel-diagnose"&&mode!="kernel-counters"&&mode!="two-cta-check"&&mode!="two-cta-compare"&&mode!="triple-check"&&mode!="triple-compare"&&mode!="occupancy-check"&&mode!="occupancy-compare")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
+    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="overlap-worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare"&&mode!="matrix-check"&&mode!="matrix-compare"&&mode!="kernel-diagnose"&&mode!="kernel-counters"&&mode!="two-cta-check"&&mode!="two-cta-compare"&&mode!="triple-check"&&mode!="triple-compare"&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="fused-check"&&mode!="fused-compare")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
       throw std::runtime_error("invalid options");
     if(matrix_loads&&(candidate!=384||stage_k!=64||(mode!="matrix-check"&&mode!="matrix-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("matrix loads require384/stage64 and matrix mode/worker/mine-batch");
     if((mode=="matrix-check"||mode=="matrix-compare")&&(!matrix_loads||candidate!=384))throw std::runtime_error("matrix mode requires --matrix-loads --candidate 384");
     if((mode=="kernel-diagnose"||mode=="kernel-counters")&&(candidate!=384||stage_k!=64||matrix_loads))throw std::runtime_error("diagnostics require unchanged scalar384/stage64");
     if(two_cta&&(candidate!=256||stage_k!=64||matrix_loads||(mode!="two-cta-check"&&mode!="two-cta-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("two-cta requires256/stage64 without matrix loads, explicit new modes/worker/mine-batch");
     if((mode=="two-cta-check"||mode=="two-cta-compare")&&!two_cta)throw std::runtime_error("two-cta mode needs --two-cta");
-    if(triple_stage&&((candidate!=384&&candidate!=256)||stage_k!=64||matrix_loads||two_cta||(mode!="triple-check"&&mode!="triple-compare"&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("triple-stage requires384/stage64 and explicit triple modes/worker/mine-batch, no other candidates");
-    if((mode=="triple-check"||mode=="triple-compare"||mode=="occupancy-check"||mode=="occupancy-compare")&&!triple_stage)throw std::runtime_error("triple mode requires --triple-stage");
+    if(triple_stage&&((candidate!=384&&candidate!=256)||stage_k!=64||matrix_loads||two_cta||(mode!="triple-check"&&mode!="triple-compare"&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="fused-check"&&mode!="fused-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("triple-stage requires384/stage64 and explicit triple modes/worker/mine-batch, no other candidates");
+    if((mode=="triple-check"||mode=="triple-compare"||mode=="occupancy-check"||mode=="occupancy-compare"||mode=="fused-check"||mode=="fused-compare")&&!triple_stage)throw std::runtime_error("triple mode requires --triple-stage");
     if((mode=="occupancy-check"||mode=="occupancy-compare")&&(!triple_stage||candidate!=256||stage_k!=64))throw std::runtime_error("occupancy mode requires --triple-stage --candidate256 --stage-k64");
-    if(triple_stage&&candidate==256&&mode!="occupancy-check"&&mode!="occupancy-compare")throw std::runtime_error("lane-triple256 is validation-only until GPU correctness and performance pass");
+    if(triple_stage&&candidate==256&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="fused-check"&&mode!="fused-compare")throw std::runtime_error("lane-triple256 is validation-only until GPU correctness and performance pass");
+    if((mode=="fused-check"||mode=="fused-compare")&&(!triple_stage||candidate!=384||stage_k!=64||matrix_loads||two_cta))throw std::runtime_error("fused mode needs original384/stage64/triple");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
-    if(mode=="worker"||mode=="overlap-worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"||mode=="matrix-check"||mode=="matrix-compare"||mode=="kernel-diagnose"||mode=="kernel-counters"||mode=="two-cta-check"||mode=="two-cta-compare"||mode=="triple-check"||mode=="triple-compare"||mode=="occupancy-check"||mode=="occupancy-compare"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
+    if(mode=="worker"||mode=="overlap-worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"||mode=="matrix-check"||mode=="matrix-compare"||mode=="kernel-diagnose"||mode=="kernel-counters"||mode=="two-cta-check"||mode=="two-cta-compare"||mode=="triple-check"||mode=="triple-compare"||mode=="occupancy-check"||mode=="occupancy-compare"||mode=="fused-check"||mode=="fused-compare"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
     shape.validate();check(cudaSetDevice(device));cudaDeviceProp prop{};check(cudaGetDeviceProperties(&prop,device));
     if(prop.major!=8||(prop.minor!=6&&prop.minor!=9))throw std::runtime_error("This experimental build targets SM86/SM89 only");
     char pci[32];check(cudaDeviceGetPCIBusId(pci,sizeof(pci),device));
@@ -333,6 +375,15 @@ int main(int argc,char**argv){
       if(control.get()!=out.get())throw std::runtime_error("post-comparison transcript mismatch");
       const double ratio=(times[0]+times[3])/(times[1]+times[2]);const bool passed=ratio>1.02&&std::max(times[1],times[2])<std::min(times[0],times[3]);
       std::cout<<"{\"phase\":\"matrix_comparison\",\"resident_input_only\":true,\"baseline_threads\":384,\"candidate_threads\":384,\"stage_k_both\":64,\"baseline_matrix_loads\":false,\"candidate_matrix_loads\":true,\"post_compare_transcript_equal\":true,\"speed_ratio\":"<<ratio<<",\"candidate_faster_for_live\":"<<(passed?"true":"false")<<",\"live_hashrate_measured\":false}\n";return 0;
+    }
+    if(mode=="fused-check"){verify_fused(fixtures);return 0;}
+    if(mode=="fused-compare"){
+      if(shape.m!=8192||shape.n!=8192||shape.k!=4096||shape.rank!=256||shape.proof_n!=16||plan.rounds!=1||plan.duration!=1||plan.warmup!=.25)throw std::runtime_error("exact bounded8192 profile required");
+      verify_fused(fixtures);
+      Buffer<int8_t>a(std::size_t(shape.m)*shape.k),b(std::size_t(shape.n)*shape.k);std::vector<int8_t>ha(std::size_t(shape.m)*shape.k),hb(std::size_t(shape.n)*shape.k);
+      for(std::size_t i=0;i<ha.size();++i)ha[i]=int8_t(int(i%127)-63);for(std::size_t i=0;i<hb.size();++i)hb[i]=int8_t(int((i*7)%127)-63);a.put(ha);b.put(hb);Buffer<uint32_t>transcripts(shape.groups()*16);
+      double times[4];for(int leg=0;leg<4;++leg)times[leg]=measure_fused(a.p,b.p,transcripts.p,shape,leg==1||leg==2,pci,leg);
+      const double ratio=(times[0]+times[3])/(times[1]+times[2]);std::cout<<"{\"phase\":\"fused_comparison\",\"baseline\":\"triple384+filter\",\"candidate\":\"fused-triple384\",\"speed_ratio\":"<<ratio<<",\"live_hashrate_measured\":false}\n";return 0;
     }
     if(mode=="occupancy-check"){verify_triple(fixtures,256);return 0;}
     if(mode=="occupancy-compare"){

@@ -1,0 +1,23 @@
+{
+  "compiler": "CUDA13.0.88",
+  "CPU_tests_passed": 112,
+  "GPU_tested": false,
+  "live_enabled": false,
+  "block_threads": 384,
+  "tile": [
+    192,
+    256
+  ],
+  "PN16_shared_bytes": 98304,
+  "PN8_shared_bytes": 81920,
+  "resource_output": [
+    "ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi16EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE' for 'sm_86'\nptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi16EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 168 registers, used 1 barriers, 492 bytes cmem[0]",
+    "ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi8EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE' for 'sm_86'\nptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi8EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 167 registers, used 1 barriers, 492 bytes cmem[0]",
+    "ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi16EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE' for 'sm_89'\nptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi16EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 168 registers, used 1 barriers, 492 bytes cmem[0]",
+    "ptxas info    : Compiling entry function '_ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi8EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE' for 'sm_89'\nptxas info    : Function properties for _ZN9pearl_lab41_GLOBAL__N__73c73fef_9_kernel_cu_ed11e7a611pearl_fusedILi8EEEvPKaS3_NS_9KeyTargetEPNS_10CompactHitEPjjNS_11HitGeometryENS_5ShapeE\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 167 registers, used 1 barriers, 492 bytes cmem[0]"
+  ],
+  "binary_sha256": "e86e44b800136487afbf5b19aa83f5de6e56b4497b75217d5eb60a15c588e242",
+  "gzip_sha256": "99fee9be911c51477f3ab7c05443c22998c1a90c05baafff27af9c1c589a0c8d",
+  "power_310W_measured": false,
+  "SRBMiner_speedup_proven": false
+}
