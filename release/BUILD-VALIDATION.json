@@ -10,10 +10,17 @@
   "gpu_guard_function_AST_unchanged": true,
   "package_created_before_environment_loss": true,
   "generated_archive_sha256_before_loss": "c7a74d3936e2457ecd9fc320dd99f67fa96bec6d3b2004120093cf8e72514e37",
-  "archive_published": false,
+  "archive_published": true,
   "repack_script_added_after_environment_loss": true,
-  "repack_script_execution_pending": true,
+  "repack_script_execution_pending": false,
   "package_GPU_tested": false,
   "SRBMiner_speedup_proven": false,
-  "mining_interrupted_for_packaging": false
+  "mining_interrupted_for_packaging": false,
+  "unit_tests": {
+    "passed": 120,
+    "failed": 0
+  },
+  "archive_sha256": "eaddaf639c7afb1a6cd89c48bff01a88342079db6068228adb19af827fb6828a",
+  "archive_bytes": 3230596,
+  "repack_script_execution_passed": true
 }
