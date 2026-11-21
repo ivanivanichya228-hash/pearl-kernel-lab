@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0-test",
+  "kernel_commit": "ea171542e94331dfa576d57f60f1b54f5be5797e",
+  "archive_sha256": "28fdca1aaac1e597a5cd8cfad0d39db35120be1ecfa4857fed0e80af5662f157",
+  "archive_bytes": 2880279,
+  "unit_tests": {"passed": 106, "failed": 0},
+  "relocation_loader_check": "passed without GPU",
+  "private_config_import_and_permissions": "passed",
+  "tampered_profile_refused": true,
+  "package_GPU_tested": false,
+  "SRBMiner_speedup_proven": false,
+  "mining_interrupted_for_packaging": false
+}
