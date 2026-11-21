@@ -1,3 +1,5 @@
+CURRENT TASK: [HARDWARE-COUNTERS.md](HARDWARE-COUNTERS.md), revision0.17.0. One transient PERFMON-only profile, UID1000. Inert capability/exec probe BEFORE any mining pause. No new kernel, no timing replay, no permanent privileges. Earlier tasks below are historical.
+
 CURRENT: [COMPUTE-DIAGNOSIS.md](COMPUTE-DIAGNOSIS.md). Diagnostic revision0.16.0, unchanged scalar384 compute/filter. Previous ldmatrix was rejected; no faster-than-SRB result. Only one short phase/counter measurement, no long mining test. Earlier tasks below are historical.
 
 > CURRENT TASK: [LDMATRIX.md](LDMATRIX.md), revision0.15.0. All tasks below are historical. One bounded Mint4090 test only, scalar384 vs collective384, no transfer overlap. No SRBMiner advantage established.

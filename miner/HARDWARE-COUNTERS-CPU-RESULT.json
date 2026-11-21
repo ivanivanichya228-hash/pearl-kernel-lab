@@ -1,0 +1,11 @@
+{
+  "parent": "f1e31c01f55d3e7ae7c47c382012311156b2963d",
+  "python_tests_passed": 85,
+  "native_engine_and_computational_sources_unchanged": true,
+  "GPU_executed": false,
+  "privileged_transient_scope_executed": false,
+  "hardware_counters_collected": false,
+  "system_permission_changes": false,
+  "profiling_capability": "transient CAP_PERFMON only; must be proved on rig before mining pause",
+  "local_unprivileged_inert_probe_refused_before_exec": true
+}

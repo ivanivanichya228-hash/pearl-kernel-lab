@@ -1,8 +1,11 @@
 """Bounded scalar384 diagnostics; no pool, miner controls, installs or GPU setters."""
-import argparse,asyncio,csv,hashlib,io,json,math,os,platform,re,shutil,subprocess
+import argparse,asyncio,csv,hashlib,io,json,math,os,platform,re,shutil,subprocess,sys
 from decimal import Decimal
 from pathlib import Path
+# -I ignores cwd/user-site/PYTHONPATH; the counter scope uses a root-owned trusted copy.
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from pearl_miner import child,gpu_guard
+from counter_access import current_access
 ROOT=Path(__file__).resolve().parents[1]
 SECTIONS=('SpeedOfLight','Occupancy','SchedulerStats','WarpStateStats','MemoryWorkloadAnalysis')
 
@@ -34,6 +37,29 @@ def timing_summary(text):
   'shares_sent':0,'real_hashrate_measured':False,'hardware_counters_collected':False,
   'cause_of_kernel_stalls_established':False,'summary':s,'samples':rows}
 
+def counter_summary(text):
+ if '==ERROR==' in text or 'ERR_NVGPUCTRPERM' in text:raise ValueError('Profiler reported an error')
+ completed=[]
+ for line in text.splitlines():
+  try:r=json.loads(line)
+  except ValueError:continue
+  if isinstance(r,dict) and r.get('phase')=='counter_targets_completed':completed.append(r)
+ if len(completed)!=1:raise ValueError('Native counter targets did not complete')
+ r=completed[0]
+ if r.get('kernel_threads')!=384 or r.get('matrix_loads') is not False or r.get('warm_matching_launches')!=6 or r.get('profile_matching_launches')!=2 or r.get('timings_valid') is not False or r.get('pool_connected') is not False or r.get('shares_sent')!=0:raise ValueError('Wrong counter target scope')
+ header=None;metrics={}
+ for row in csv.reader(io.StringIO(text)):
+  if all(k in row for k in ('Kernel Name','Metric Name','Metric Value')):header=row;continue
+  if header and len(row)==len(header) and ('ID' not in header or row[header.index('ID')].isdigit()):
+   data=dict(zip(header,row));name=data['Kernel Name'];metrics.setdefault(name,{})[data['Metric Name']]=data['Metric Value']
+ if len(metrics)!=2 or not any('pearl_int8' in n for n in metrics) or not any('compact_filter_kernel' in n for n in metrics):raise ValueError('Expected exactly GEMM and filter counter targets')
+ for values in metrics.values():
+  for name in ('gpu__time_duration.sum','sm__throughput.avg.pct_of_peak_sustained_elapsed'):
+   try:value=float(values[name].replace(',',''))
+   except (KeyError,ValueError):raise ValueError('Missing actual hardware metric: '+name) from None
+   if not math.isfinite(value) or value<0:raise ValueError('Invalid hardware metric: '+name)
+ return {'kernel_names':sorted(metrics),'metrics':metrics,'native_completion':r}
+
 def probe_ncu(explicit=None):
  paths=[Path(explicit)] if explicit else [Path(p) for p in [shutil.which('ncu')] if p]
  if not explicit:
@@ -44,7 +70,7 @@ def probe_ncu(explicit=None):
  if params.is_file():
   match=re.search(r'^RmProfilingAdminOnly:\s*([01])\s*$',params.read_text(),re.M)
   if match:restricted=bool(int(match.group(1)))
- facts={'GPU_executed':False,'ncu':None,'known_admin_only_counters':restricted,'installation_performed':False,'permission_changes':False}
+ facts={'GPU_executed':False,'ncu':None,'known_admin_only_counters':restricted,'installation_performed':False,'permission_changes':False,'counter_access':current_access()}
  for path in dict.fromkeys(paths):
   if not path.is_file() or not os.access(path,os.X_OK):continue
   version=subprocess.run([str(path),'--version'],capture_output=True,text=True,timeout=5)
@@ -70,7 +96,8 @@ async def run(args):
   if not args.ncu:raise ValueError('Use the preflight-verified profiler path')
   facts=probe_ncu(args.ncu)
   if not facts['ncu']:raise ValueError('Profiler preflight failed; no GPU work')
-  if facts['known_admin_only_counters'] and os.geteuid()!=0:raise ValueError('Admin-only counters; do not change driver permissions or pause for this command')
+  if os.geteuid()!=1000:raise ValueError('Counter collection must remain UID1000, not root')
+  if facts['known_admin_only_counters'] is not False and not facts['counter_access']['ambient_perfmon_scope_valid']:raise ValueError('Admin-only/unknown counter policy requires a verified transient PERFMON-only scope')
   argv=counter_command(facts['ncu'],engine,args.paused_pid,args.paused_start_ticks,args.out/'hardware')
  else:
   argv=[engine,'--run-gpu','--mode','kernel-diagnose','--candidate','384','--stage-k','64','--allow-concurrent-miner','--paused-pid',args.paused_pid,'--paused-start-ticks',args.paused_start_ticks]
@@ -79,13 +106,10 @@ async def run(args):
  log=args.out/'raw.log';await child(argv,30 if args.kind=='counters' else 15,guard,log);guard();text=log.read_text()
  if args.kind=='timing':result=timing_summary(text)
  else:
-  if '==ERROR==' in text or 'ERR_NVGPUCTRPERM' in text or not (args.out/'hardware.ncu-rep').is_file():raise ValueError('Counter collection incomplete; retain full raw log')
-  header=None;names=set()
-  for row in csv.reader(io.StringIO(text)):
-   if 'Kernel Name' in row and 'Metric Name' in row:header=row;continue
-   if header and len(row)==len(header):names.add(row[header.index('Kernel Name')])
-  if len(names)!=2 or not any('pearl_int8' in n for n in names) or not any('compact_filter_kernel' in n for n in names):raise ValueError('Expected exactly GEMM and filter counter targets')
-  result={'GPU_executed':True,'hardware_counters_collected':True,'kernel_names':sorted(names),'shares_sent':0,'real_hashrate_measured':False,'instrumented_timings_are_not_benchmark_results':True,'profiler':facts}
+  report=args.out/'hardware.ncu-rep'
+  if not report.is_file() or not report.stat().st_size:raise ValueError('Counter report absent/empty; retain full raw log')
+  detail=counter_summary(text)
+  result={'GPU_executed':True,'hardware_counters_collected':True,**detail,'shares_sent':0,'real_hashrate_measured':False,'instrumented_timings_are_not_benchmark_results':True,'profiler':facts}
  (args.out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
 
 def cli():
