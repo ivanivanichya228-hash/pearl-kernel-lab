@@ -1,3 +1,5 @@
+CURRENT TASK: [ROOT-HARDWARE-PROFILE.md](ROOT-HARDWARE-PROFILE.md), revision0.18.0. One fixed root profiler entry; root-owned frozen code, pinned binaries/GPU, transient SYS_ADMIN-only unit. Preflight BEFORE pause. No new kernel or long test. Earlier tasks below are historical.
+
 CURRENT TASK: [HARDWARE-COUNTERS.md](HARDWARE-COUNTERS.md), revision0.17.0. One transient PERFMON-only profile, UID1000. Inert capability/exec probe BEFORE any mining pause. No new kernel, no timing replay, no permanent privileges. Earlier tasks below are historical.
 
 CURRENT: [COMPUTE-DIAGNOSIS.md](COMPUTE-DIAGNOSIS.md). Diagnostic revision0.16.0, unchanged scalar384 compute/filter. Previous ldmatrix was rejected; no faster-than-SRB result. Only one short phase/counter measurement, no long mining test. Earlier tasks below are historical.
