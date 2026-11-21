@@ -41,3 +41,19 @@ class CompactEvidenceTests(unittest.TestCase):
   for suffix_bad in ('\nERROR SUMMARY: 0 errors',suffix.replace('0 bytes','4 bytes'),suffix+'LEAK SUMMARY: 4 bytes leaked in 1 allocations'):
    with self.assertRaises(ValueError):g.validate_memcheck(json.dumps(good)+suffix_bad,0,'compact-check')
  def test_new_mode_budget_allowed(self):self.assertEqual(g.validation_budget(2,0,1,20,'compact-check',True),0)
+
+class Kernel384EvidenceTests(unittest.TestCase):
+ def test_requires_new_matrix_and_checkpoint_result(self):
+  import json
+  good={'phase':'kernel384_correctness','passed':True,'fixtures':6,'full_matrix_and_transcript':True,'non_debug_transcript_checked':True,'other_kernels_executed':False}
+  suffix='\nERROR SUMMARY: 0 errors\nLEAK SUMMARY: 0 bytes leaked in 0 allocations'
+  g.validate_memcheck(json.dumps(good)+suffix,0,'kernel384-check')
+  for change in ({'fixtures':5},{'full_matrix_and_transcript':False},{'non_debug_transcript_checked':False},{'other_kernels_executed':True}):
+   with self.assertRaises(ValueError):g.validate_memcheck(json.dumps({**good,**change})+suffix,0,'kernel384-check')
+  with self.assertRaises(ValueError):g.validate_memcheck(json.dumps(good)+'\nERROR SUMMARY: 0 errors',0,'kernel384-check')
+ def test_exact_short_comparison_budget(self):
+  self.assertEqual(g.validation_budget(1,.25,1,20,'kernel384-compare',False),5)
+  for duration,warmup,rounds in ((2,.25,1),(1,0,1),(1,.25,2)):
+   with self.assertRaises(ValueError):g.validation_budget(duration,warmup,rounds,30,'kernel384-compare',False)
+ def test_comparison_must_not_run_under_sanitizer(self):
+  with self.assertRaises(ValueError):g.validation_budget(1,.25,1,20,'kernel384-compare',True)

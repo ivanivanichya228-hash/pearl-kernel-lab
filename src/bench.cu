@@ -129,6 +129,20 @@ void verify(const std::string&root, const std::string& export_path) {
   }
   std::cout<<"{\"phase\":\"correctness\",\"passed\":true,\"fixtures\":6,\"variants_per_fixture\":4,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true}\n";
 }
+void verify384(const std::string&root){
+ for(int i=0;i<6;++i){auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");
+  Buffer<int8_t>a(f.a.size()),b(f.bt.size());Buffer<uint32_t>out(f.golden.transcript.size());Buffer<int32_t>matrix(f.golden.matrix.size());a.put(f.a);b.put(f.bt);
+  out.put(std::vector<uint32_t>(f.golden.transcript.size(),0xa5a5a5a5u));matrix.put(std::vector<int32_t>(f.golden.matrix.size(),0x5a5a5a5a));
+  check(launch(a.p,b.p,out.p,matrix.p,f.p,384,nullptr,64));check(cudaDeviceSynchronize());
+  if(out.get()!=f.golden.transcript||matrix.get()!=f.golden.matrix)throw std::runtime_error("kernel384 matrix/transcript fixture="+std::to_string(i));
+  out.put(std::vector<uint32_t>(f.golden.transcript.size(),0xa5a5a5a5u));check(launch(a.p,b.p,out.p,nullptr,f.p,384,nullptr,64));check(cudaDeviceSynchronize());
+  if(out.get()!=f.golden.transcript)throw std::runtime_error("kernel384 non-debug fixture="+std::to_string(i));
+ }
+ for(int pn:{8,16}){cudaFuncAttributes attr{};int blocks=0;check(resource_info(384,pn,false,&attr,&blocks,64));if(attr.localSizeBytes||attr.numRegs>168||blocks<1)throw std::runtime_error("kernel384 resources/spills/occupancy");
+  std::cout<<"{\"phase\":\"kernel384_resources\",\"proof_n\":"<<pn<<",\"registers\":"<<attr.numRegs<<",\"local_bytes\":"<<attr.localSizeBytes<<",\"active_blocks\":"<<blocks<<"}\n";
+ }
+ std::cout<<"{\"phase\":\"kernel384_correctness\",\"passed\":true,\"fixtures\":6,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true,\"other_kernels_executed\":false}\n";
+}
 double median(std::vector<double>x){std::sort(x.begin(),x.end());return x.size()%2?x[x.size()/2]:(x[x.size()/2-1]+x[x.size()/2])*0.5;}
 double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,double duration,const char*pci,int stage_k = 32, double warmup = 0, int round = 0, int leg = 0) {
   cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
@@ -165,9 +179,9 @@ int main(int argc,char**argv){
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
-        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|noise-check|compact-check] [--device N]\n"
+        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|noise-check|compact-check|kernel384-check|kernel384-compare] [--device N]\n"
           <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
-          <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|512 --stage-k 32|64] [--allow-concurrent-miner]\n"
+          <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
       }
@@ -194,22 +208,31 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="noise-check"&&mode!="compact-check")||(candidate!=128&&candidate!=256&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256)||device<0||device>31)
+    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
       throw std::runtime_error("invalid options");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
-    if(mode=="worker"||mode=="noise-check"||mode=="compact-check"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
+    if(mode=="worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
     shape.validate();check(cudaSetDevice(device));cudaDeviceProp prop{};check(cudaGetDeviceProperties(&prop,device));
     if(prop.major!=8||(prop.minor!=6&&prop.minor!=9))throw std::runtime_error("This experimental build targets SM86/SM89 only");
     char pci[32];check(cudaDeviceGetPCIBusId(pci,sizeof(pci),device));
     std::cout<<"{\"phase\":\"device\",\"name\":"<<quoted(prop.name)<<",\"pci\":"<<quoted(pci)
       <<",\"SMs\":"<<prop.multiProcessorCount<<",\"concurrent_miner_detected\":"<<(miner?"true":"false")<<"}\n";
+    if(mode=="kernel384-check"){verify384(fixtures);return 0;}
+    if(mode=="kernel384-compare"){
+      if(shape.m!=8192||shape.n!=8192||shape.k!=4096||shape.rank!=256||shape.proof_n!=16||plan.rounds!=1||plan.duration!=1||plan.warmup!=0.25)throw std::runtime_error("kernel comparison requires exact bounded8192 profile, 1s legs/.25s warmup");
+      std::mt19937 rng(71883);std::vector<int8_t>a(std::size_t(shape.m)*shape.k),b(std::size_t(shape.n)*shape.k);for(auto&x:a)x=int8_t(int(rng()%255)-127);for(auto&x:b)x=int8_t(int(rng()%255)-127);
+      Buffer<int8_t>da(a.size()),db(b.size());Buffer<uint32_t>out(shape.groups()*16);da.put(a);db.put(b);double times[4]{};int order[4]={256,384,384,256};
+      for(int leg=0;leg<4;++leg)times[leg]=measure(da.p,db.p,out.p,shape,order[leg],1,pci,64,.25,0,leg);
+      const double ratio=(times[0]+times[3])/(times[1]+times[2]);const bool passed=ratio>1.02&&std::max(times[1],times[2])<std::min(times[0],times[3]);
+      std::cout<<"{\"phase\":\"kernel384_comparison\",\"resident_input_only\":true,\"baseline_threads\":256,\"candidate_threads\":384,\"stage_k_both\":64,\"speed_ratio\":"<<ratio<<",\"candidate_faster_for_live\":"<<(passed?"true":"false")<<",\"live_hashrate_measured\":false}\n";return 0;
+    }
     if(mode=="compact-check"){check_compact_filter(hash_vectors);return 0;}
     if(mode=="noise-check"){check_gpu_noise(work_input,noise_reference_path);return 0;}
     if(mode=="worker"){if(miner&&(!paused_pid||!paused_ticks))throw std::runtime_error("persistent worker requires paused miner identity");
-      mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");});return 0;}
-    if(mode=="mine-batch"){mine_batch(work_input,work_output);return 0;}
+      mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");},candidate);return 0;}
+    if(mode=="mine-batch"){mine_batch(work_input,work_output,candidate);return 0;}
     if(mode=="pipeline-check"){check_jackpot_filter(hash_vectors);check_batch_pipeline(pipeline_fixture,pipeline_export);return 0;}
     if(mode=="filter-check"){check_jackpot_filter(hash_vectors);return 0;}
     resources(shape.proof_n);if(mode=="info")return 0;

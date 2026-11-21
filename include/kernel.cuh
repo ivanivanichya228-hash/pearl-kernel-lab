@@ -13,6 +13,10 @@ constexpr int shared_bytes(int pn) {
 constexpr int stage64_shared_bytes(int pn) {
   return 2 * (128 + 320) * 80 + (128 / 16) * (320 / pn) * 16 * sizeof(uint32_t);
 }
+constexpr int stage384_shared_bytes(int pn) {
+  return 2 * (192 + 256) * 80 + (192 / 16) * (256 / pn) * 16 * sizeof(uint32_t);
+}
+// threads384/stage64: 192x256, 3x4 warps, four-by-eight MMA fragments/warp.
 // threads=128 selects compact 64x128 with lane-resident transcript.
 // threads=256/512 preserve the original 128x384 shared-history baselines.
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* transcript,

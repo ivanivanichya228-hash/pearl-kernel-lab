@@ -47,11 +47,11 @@ template<int Threads, int ProofN, bool Debug, int StageK>
 __global__ __launch_bounds__(Threads, 1)
 void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
                 uint32_t* __restrict__ out, int32_t* __restrict__ matrix, Shape p) {
-  constexpr int tile_m = Threads == 128 ? 64 : pearl_lab::tile_m;
-  constexpr int tile_n = StageK == 64 ? 320 : (Threads == 128 ? 128 : pearl_lab::tile_n);
+  constexpr int tile_m = Threads == 384 ? 192 : (Threads == 128 ? 64 : pearl_lab::tile_m);
+  constexpr int tile_n = Threads == 384 ? 256 : (StageK == 64 ? 320 : (Threads == 128 ? 128 : pearl_lab::tile_n));
   constexpr int shared_stride = StageK + 16;
   constexpr int stage_bytes = (tile_m + tile_n) * shared_stride;
-  constexpr int warps_m = Threads == 128 ? 2 : 4, warps_n = Threads / 32 / warps_m;
+  constexpr int warps_m = Threads == 384 ? 3 : (Threads == 128 ? 2 : 4), warps_n = Threads / 32 / warps_m;
   constexpr int mi_count = tile_m / warps_m / 16;
   constexpr int ni_count = tile_n / warps_n / 8;
   constexpr int combine = ProofN / 8;
@@ -163,9 +163,9 @@ void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
 template<int T, int PN, bool Debug, int StageK = 32>
 cudaError_t run(const int8_t* a, const int8_t* bt, uint32_t* out,
                  int32_t* matrix, Shape p, cudaStream_t stream) {
-  constexpr int tile_m = T == 128 ? 64 : pearl_lab::tile_m;
-  constexpr int tile_n = StageK == 64 ? 320 : (T == 128 ? 128 : pearl_lab::tile_n);
-  constexpr int bytes = StageK == 64 ? stage64_shared_bytes(PN) : (T == 128 ? 2 * (tile_m + tile_n) * shared_stride : shared_bytes(PN));
+  constexpr int tile_m = T == 384 ? 192 : (T == 128 ? 64 : pearl_lab::tile_m);
+  constexpr int tile_n = T == 384 ? 256 : (StageK == 64 ? 320 : (T == 128 ? 128 : pearl_lab::tile_n));
+  constexpr int bytes = T == 384 ? stage384_shared_bytes(PN) : (StageK == 64 ? stage64_shared_bytes(PN) : (T == 128 ? 2 * (tile_m + tile_n) * shared_stride : shared_bytes(PN)));
   // The standalone harness owns the context for its entire lifetime (no reset).
   static thread_local int configured_device = -1;
   int device = -1;
@@ -184,7 +184,7 @@ cudaError_t run(const int8_t* a, const int8_t* bt, uint32_t* out,
 }
 template<int T, int PN, bool Debug, int StageK = 32>
 cudaError_t info(cudaFuncAttributes* attr, int* blocks) {
-  constexpr int bytes = StageK == 64 ? stage64_shared_bytes(PN) : (T == 128 ? 2 * (64 + 128) * shared_stride : shared_bytes(PN));
+  constexpr int bytes = T == 384 ? stage384_shared_bytes(PN) : (StageK == 64 ? stage64_shared_bytes(PN) : (T == 128 ? 2 * (64 + 128) * shared_stride : shared_bytes(PN)));
   auto e = cudaFuncGetAttributes(attr, pearl_int8<T, PN, Debug, StageK>);
   if (e != cudaSuccess) return e;
   e = cudaFuncSetAttribute(pearl_int8<T, PN, Debug, StageK>,
@@ -197,7 +197,11 @@ cudaError_t info(cudaFuncAttributes* attr, int* blocks) {
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
                    int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k) {
   try { p.validate(); } catch (...) { return cudaErrorInvalidValue; }
-  if (!a || !bt || !out || (threads != 128 && threads != 256 && threads != 512)) return cudaErrorInvalidValue;
+  if (!a || !bt || !out || (threads != 128 && threads != 256 && threads != 384 && threads != 512)) return cudaErrorInvalidValue;
+  if(stage_k==64&&threads==384){
+    if(p.proof_n==8){if(matrix)return run<384,8,true,64>(a,bt,out,matrix,p,stream);return run<384,8,false,64>(a,bt,out,matrix,p,stream);}
+    if(matrix)return run<384,16,true,64>(a,bt,out,matrix,p,stream);return run<384,16,false,64>(a,bt,out,matrix,p,stream);
+  }
   if (stage_k == 64 && threads == 256) {
     if (p.proof_n == 8) {
       if (matrix) return run<256,8,true,64>(a,bt,out,matrix,p,stream);
@@ -217,6 +221,11 @@ cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
 cudaError_t resource_info(int threads, int pn, bool debug,
                          cudaFuncAttributes* attr, int* blocks, int stage_k) {
   if (!attr || !blocks) return cudaErrorInvalidValue;
+  if(stage_k==64&&threads==384){
+    if(pn==8){if(debug)return info<384,8,true,64>(attr,blocks);return info<384,8,false,64>(attr,blocks);}
+    if(pn!=16)return cudaErrorInvalidValue;
+    if(debug)return info<384,16,true,64>(attr,blocks);return info<384,16,false,64>(attr,blocks);
+  }
   if (stage_k == 64 && threads == 256) {
     if (pn == 8) {
       if (debug) return info<256,8,true,64>(attr,blocks);

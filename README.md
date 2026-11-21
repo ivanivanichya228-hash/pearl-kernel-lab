@@ -1,3 +1,5 @@
+Current revision **0.13.0**: [KERNEL384.md](KERNEL384.md). Actual192x256/384-thread GEMM candidate;166/167 registers, zero spills in SM86/89 build. CPU model passed. GPU performance untested. Default remains256; one short matched rejection comparison before any long live window.
+
 Current revision **0.12.0**: [COMPACT-TRANSFER.md](COMPACT-TRANSFER.md). One compact GPU hit queue instead of per-slab host readbacks; native phase timings and persistent candidate evidence. CUDA compiled and CPU checks passed; new GPU path untested here. Use only this single current task.
 
 Current revision **0.11.0**: [ROOT-PREPARE.md](ROOT-PREPARE.md). CPU root-only preparation and parallel fresh RNG; local full-profile preparation benchmark 4.08x, independent official roots/proofs passed. New rig throughput not measured. CUDA unchanged; do not repeat old GPU gates.
