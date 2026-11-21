@@ -1,4 +1,6 @@
 {
+  "queued_transfer_scheduler_enabled": false,
+  "completed_unconsumed_boundary_sequences": [],
   "verified_candidate_proofs_retained": 8,
   "GPU_noise_requested": true,
   "pipeline_enabled": true,

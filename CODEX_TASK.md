@@ -1,3 +1,5 @@
+> CURRENT TASK: [LDMATRIX.md](LDMATRIX.md), revision0.15.0. All tasks below are historical. One bounded Mint4090 test only, scalar384 vs collective384, no transfer overlap. No SRBMiner advantage established.
+
 > Revision0.5.0: [LUCKYPOOL-ADAPTER.md](LUCKYPOOL-ADAPTER.md): real-job offline adapter and new GPU hash filter. CPU tests passed; new GPU stage not tested. Older tasks are historical.
 
 > Revision0.4.0: [PROOF-COMPATIBILITY-4090.md](PROOF-COMPATIBILITY-4090.md). Official plain-proof CPU bridge passed; new GPU fixture comparison pending. Previous tasks are historical.

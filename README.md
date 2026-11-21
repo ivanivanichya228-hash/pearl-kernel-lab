@@ -1,3 +1,7 @@
+Current revision **0.15.0**: [LDMATRIX.md](LDMATRIX.md). New collective matrix-load384 kernel, scalar384 control;168 registers, zero spills,71 CPU tests passed. New GPU validation pending. Previous pinned-transfer path was rejected on the rig (0.97853x); keep it OFF. No demonstrated advantage over SRBMiner. Use ONLY the current bounded task.
+
+Historical revision notes follow.
+
 Current revision **0.14.0**: [TRANSFER-OVERLAP.md](TRANSFER-OVERLAP.md). Explicit pinned two-slot transfer path, unchanged kernel384, bounded queued lifecycle. CUDA build and68 CPU checks pass; GPU execution pending. One short matched transport comparison gates any long live test. Default OFF.
 
 Current revision **0.13.0**: [KERNEL384.md](KERNEL384.md). Actual192x256/384-thread GEMM candidate;166/167 registers, zero spills in SM86/89 build. CPU model passed. GPU performance untested. Default remains256; one short matched rejection comparison before any long live window.

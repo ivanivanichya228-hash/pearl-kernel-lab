@@ -6,6 +6,18 @@ namespace {
 __device__ __forceinline__ uint32_t word(const int8_t* p) {
   return *reinterpret_cast<const uint32_t*>(p);
 }
+// Each address supplies an aligned 16-byte row of an 8x8 b16 matrix.
+// No transpose: BT is already stored with contiguous K bytes per column.
+__device__ __forceinline__ void matrix_a(const int8_t* p, uint32_t (&v)[4]) {
+  const uint32_t address = uint32_t(__cvta_generic_to_shared(p));
+  asm volatile("ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];"
+      : "=r"(v[0]), "=r"(v[1]), "=r"(v[2]), "=r"(v[3]) : "r"(address) : "memory");
+}
+__device__ __forceinline__ void matrix_b(const int8_t* p, uint32_t (&v)[2]) {
+  const uint32_t address = uint32_t(__cvta_generic_to_shared(p));
+  asm volatile("ldmatrix.sync.aligned.m8n8.x2.shared.b16 {%0,%1}, [%2];"
+      : "=r"(v[0]), "=r"(v[1]) : "r"(address) : "memory");
+}
 __device__ __forceinline__ void copy16(int8_t* dst, const int8_t* src, bool valid) {
   const uint32_t address = uint32_t(__cvta_generic_to_shared(dst));
   const int bytes = valid ? 16 : 0;
@@ -43,7 +55,7 @@ __device__ __forceinline__ void prefetch(int8_t* stage, const int8_t* a,
   asm volatile("cp.async.commit_group;" ::: "memory");
 }
 
-template<int Threads, int ProofN, bool Debug, int StageK>
+template<int Threads, int ProofN, bool Debug, int StageK, bool MatrixLoads = false>
 __global__ __launch_bounds__(Threads, 1)
 void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
                 uint32_t* __restrict__ out, int32_t* __restrict__ matrix, Shape p) {
@@ -83,6 +95,23 @@ void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
     if (kk + sub >= p.k) break;
     const int8_t* sa = stage + which * stage_bytes + sub;
     const int8_t* sb = sa + tile_m * shared_stride;
+    if constexpr (MatrixLoads) {
+      // Reuse each of eight B fragments across all four A fragments.
+      uint32_t bfrag[ni_count][2];
+      #pragma unroll
+      for (int in = 0; in < ni_count; ++in)
+        matrix_b(sb + (warp_col + in * 8 + (lane & 7)) * shared_stride
+                    + ((lane >> 3) & 1) * 16, bfrag[in]);
+      #pragma unroll
+      for (int im = 0; im < mi_count; ++im) {
+        uint32_t afrag[4];
+        matrix_a(sa + (warp_row + im * 16 + (lane & 15)) * shared_stride
+                    + (lane >> 4) * 16, afrag);
+        #pragma unroll
+        for (int in = 0; in < ni_count; ++in)
+          mma(c[im][in], afrag[0], afrag[1], afrag[2], afrag[3], bfrag[in][0], bfrag[in][1]);
+      }
+    } else {
     #pragma unroll
     for (int im = 0; im < mi_count; ++im) {
       const int ar = warp_row + im * 16 + group;
@@ -97,6 +126,7 @@ void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
             word(sb + br * shared_stride + t * 4),
             word(sb + br * shared_stride + t * 4 + 16));
       }
+    }
     }
     if (((kk + sub + tile_k) & (p.rank - 1)) == 0) {
       const int slot = (((kk + sub + tile_k) >> rank_shift) - 1) & 15;
@@ -160,7 +190,7 @@ void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
     }
   }
 }
-template<int T, int PN, bool Debug, int StageK = 32>
+template<int T, int PN, bool Debug, int StageK = 32, bool MatrixLoads = false>
 cudaError_t run(const int8_t* a, const int8_t* bt, uint32_t* out,
                  int32_t* matrix, Shape p, cudaStream_t stream) {
   constexpr int tile_m = T == 384 ? 192 : (T == 128 ? 64 : pearl_lab::tile_m);
@@ -172,32 +202,37 @@ cudaError_t run(const int8_t* a, const int8_t* bt, uint32_t* out,
   cudaError_t e = cudaGetDevice(&device);
   if (e != cudaSuccess) return e;
   if (configured_device != device) {
-    e = cudaFuncSetAttribute(pearl_int8<T, PN, Debug, StageK>,
+    e = cudaFuncSetAttribute(pearl_int8<T, PN, Debug, StageK, MatrixLoads>,
                              cudaFuncAttributeMaxDynamicSharedMemorySize, bytes);
     if (e != cudaSuccess) return e;
     configured_device = device;
   }
-  pearl_int8<T, PN, Debug, StageK><<<dim3((p.n + tile_n - 1) / tile_n,
+  pearl_int8<T, PN, Debug, StageK, MatrixLoads><<<dim3((p.n + tile_n - 1) / tile_n,
                                  (p.m + tile_m - 1) / tile_m), T, bytes, stream>>>
       (a, bt, out, matrix, p);
   return cudaGetLastError();
 }
-template<int T, int PN, bool Debug, int StageK = 32>
+template<int T, int PN, bool Debug, int StageK = 32, bool MatrixLoads = false>
 cudaError_t info(cudaFuncAttributes* attr, int* blocks) {
   constexpr int bytes = T == 384 ? stage384_shared_bytes(PN) : (StageK == 64 ? stage64_shared_bytes(PN) : (T == 128 ? 2 * (64 + 128) * shared_stride : shared_bytes(PN)));
-  auto e = cudaFuncGetAttributes(attr, pearl_int8<T, PN, Debug, StageK>);
+  auto e = cudaFuncGetAttributes(attr, pearl_int8<T, PN, Debug, StageK, MatrixLoads>);
   if (e != cudaSuccess) return e;
-  e = cudaFuncSetAttribute(pearl_int8<T, PN, Debug, StageK>,
+  e = cudaFuncSetAttribute(pearl_int8<T, PN, Debug, StageK, MatrixLoads>,
                            cudaFuncAttributeMaxDynamicSharedMemorySize, bytes);
   if (e != cudaSuccess) return e;
   return cudaOccupancyMaxActiveBlocksPerMultiprocessor(blocks,
-      pearl_int8<T, PN, Debug, StageK>, T, bytes);
+      pearl_int8<T, PN, Debug, StageK, MatrixLoads>, T, bytes);
 }
 } // namespace
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
-                   int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k) {
+                   int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k, bool matrix_loads) {
   try { p.validate(); } catch (...) { return cudaErrorInvalidValue; }
   if (!a || !bt || !out || (threads != 128 && threads != 256 && threads != 384 && threads != 512)) return cudaErrorInvalidValue;
+  if(matrix_loads){
+    if(threads!=384||stage_k!=64)return cudaErrorInvalidValue;
+    if(p.proof_n==8){if(matrix)return run<384,8,true,64,true>(a,bt,out,matrix,p,stream);return run<384,8,false,64,true>(a,bt,out,matrix,p,stream);}
+    if(matrix)return run<384,16,true,64,true>(a,bt,out,matrix,p,stream);return run<384,16,false,64,true>(a,bt,out,matrix,p,stream);
+  }
   if(stage_k==64&&threads==384){
     if(p.proof_n==8){if(matrix)return run<384,8,true,64>(a,bt,out,matrix,p,stream);return run<384,8,false,64>(a,bt,out,matrix,p,stream);}
     if(matrix)return run<384,16,true,64>(a,bt,out,matrix,p,stream);return run<384,16,false,64>(a,bt,out,matrix,p,stream);
@@ -219,8 +254,14 @@ cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
   return cudaErrorInvalidValue;
 }
 cudaError_t resource_info(int threads, int pn, bool debug,
-                         cudaFuncAttributes* attr, int* blocks, int stage_k) {
+                         cudaFuncAttributes* attr, int* blocks, int stage_k, bool matrix_loads) {
   if (!attr || !blocks) return cudaErrorInvalidValue;
+  if(matrix_loads){
+    if(threads!=384||stage_k!=64)return cudaErrorInvalidValue;
+    if(pn==8){if(debug)return info<384,8,true,64,true>(attr,blocks);return info<384,8,false,64,true>(attr,blocks);}
+    if(pn!=16)return cudaErrorInvalidValue;
+    if(debug)return info<384,16,true,64,true>(attr,blocks);return info<384,16,false,64,true>(attr,blocks);
+  }
   if(stage_k==64&&threads==384){
     if(pn==8){if(debug)return info<384,8,true,64>(attr,blocks);return info<384,8,false,64>(attr,blocks);}
     if(pn!=16)return cudaErrorInvalidValue;

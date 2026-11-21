@@ -1,0 +1,81 @@
+{
+  "change": "collective matrix loads for384/stage64, explicit flag default off",
+  "parent": "cba3db47efa05a32dae92298874bd508e3ab75df",
+  "compiler": "CUDA13.0.88",
+  "variants": [
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi16ELb0ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi16ELb1ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi8ELb0ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi8ELb1ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi16ELb0ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi16ELb1ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi8ELb0ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__114a311e_9_kernel_cu_8ba51dfa10pearl_int8ILi384ELi8ELb1ELi64ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    }
+  ],
+  "python_tests_passed": 71,
+  "cpu_mapping_checked": true,
+  "GPU_executed": false,
+  "hardware_speedup": null,
+  "faster_than_SRBMiner_established": false,
+  "existing_miner_modified": false,
+  "transfer_overlap_selected": false,
+  "cpu_contract_and_fixture_checks_passed": true,
+  "actual_CPU_CLI_loopback_verified_proofs": 8,
+  "native_invalid_selection_rejected_before_CUDA": 3
+}

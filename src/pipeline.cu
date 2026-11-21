@@ -59,9 +59,9 @@ struct EventMarks{
  float elapsed(int a,int b){float ms=0;checked(cudaEventElapsedTime(&ms,e[a],e[b]));return ms;}
 };
 class MiningExecutor{
- Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,count,permutation;Reusable<CompactHit>packed;Stream stream;uint64_t generation=0;int threads;
+ Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,count,permutation;Reusable<CompactHit>packed;Stream stream;uint64_t generation=0;int threads;bool matrix_loads;
  public:
- explicit MiningExecutor(int kernel_threads=256):threads(kernel_threads){if(threads!=256&&threads!=384)throw std::runtime_error("kernel threads");}
+ explicit MiningExecutor(int kernel_threads=256,bool loads=false):threads(kernel_threads),matrix_loads(loads){if((threads!=256&&threads!=384)||(loads&&threads!=384))throw std::runtime_error("kernel threads/matrix loads");}
  uint64_t run(const std::string&path,const std::string&output,TransferSlot*input=nullptr,cudaEvent_t epoch=nullptr,const std::function<void(cudaEvent_t)>&overlap={}){
   const auto started=std::chrono::steady_clock::now();
   if(output.empty()||std::filesystem::exists(output))throw std::runtime_error("new hits output path required");
@@ -90,7 +90,7 @@ class MiningExecutor{
   checked(cudaMemsetAsync(count.p,0,4,stream.s));uint32_t slabs=0;
   for(int r=0;r<p.m;r+=slab){for(int c=0;c<p.n;c+=slab){
    Shape local{std::min(slab,p.m-r),std::min(slab,p.n-c),p.k,p.rank,p.proof_n};
-   checked(launch(device_a+std::size_t(r)*p.k,device_b+std::size_t(c)*p.k,transcripts.p,nullptr,local,threads,stream.s,64));
+   checked(launch(device_a+std::size_t(r)*p.k,device_b+std::size_t(c)*p.k,transcripts.p,nullptr,local,threads,stream.s,64,matrix_loads));
    checked(launch_compact_filter(transcripts.p,uint32_t(local.groups()),info.context,packed.p,count.p,capacity,HitGeometry{uint32_t(r),uint32_t(c),uint32_t(local.n),uint32_t(p.n),uint32_t(p.proof_n)},stream.s));++slabs;
   }}
   checked(cudaEventRecord(marks.e[3],stream.s));if(overlap)overlap(marks.e[3]);uint32_t found=0;uint32_t*host_count=input?input->result_count():&found;
@@ -106,7 +106,7 @@ class MiningExecutor{
   }
   float transfer_ms=marks.elapsed(0,1);if(input)checked(cudaEventElapsedTime(&transfer_ms,input->begin,input->end));
   const auto wall_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
-  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"kernel_threads\":"<<threads<<",\"pinned_transfer_overlap\":"<<(input?"true":"false")<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<transfer_ms<<",\"input_ready_wait_milliseconds\":"<<(input?marks.elapsed(0,1):0)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
+  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"kernel_threads\":"<<threads<<",\"matrix_loads\":"<<(matrix_loads?"true":"false")<<",\"pinned_transfer_overlap\":"<<(input?"true":"false")<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<transfer_ms<<",\"input_ready_wait_milliseconds\":"<<(input?marks.elapsed(0,1):0)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
  }
 };
 }
@@ -126,6 +126,6 @@ void overlap_worker(const std::function<void()>&guard,int kernel_threads){
   std::cout<<"{\"phase\":\"worker_done\",\"seq\":"<<request.seq<<",\"requests_completed\":"<<completed<<",\"resource_generation\":"<<generation<<",\"pid\":"<<getpid()<<"}\n"<<std::flush;
  }
 }
-void mine_batch(const std::string&path,const std::string&output,int kernel_threads){MiningExecutor engine(kernel_threads);engine.run(path,output);}
-void mining_worker(const std::function<void()>&guard,int kernel_threads){MiningExecutor engine(kernel_threads);serve_mining_worker([&](const std::string&i,const std::string&o){guard();auto result=engine.run(i,o);guard();return result;},"GPU");}
+void mine_batch(const std::string&path,const std::string&output,int kernel_threads,bool matrix_loads){MiningExecutor engine(kernel_threads,matrix_loads);engine.run(path,output);}
+void mining_worker(const std::function<void()>&guard,int kernel_threads,bool matrix_loads){MiningExecutor engine(kernel_threads,matrix_loads);serve_mining_worker([&](const std::string&i,const std::string&o){guard();auto result=engine.run(i,o);guard();return result;},"GPU");}
 }
