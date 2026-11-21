@@ -2,6 +2,7 @@
 import asyncio,contextlib,time
 from dataclasses import dataclass
 from persistent_engine import PersistentEngine,terminate
+from guard_checks import check_guard
 @dataclass
 class Ticket:
  seq:int;future:object;submitted:float;completed:float|None=None;consumed:bool=False
@@ -47,7 +48,7 @@ class QueuedEngine(PersistentEngine):
    if len(self.pending)>=2:raise RuntimeError('Two-packet submission bound exceeded')
    paths=[str(input_path.resolve()),str(output_path.resolve())]
    if any(any(ord(c)<32 or ord(c)==127 for c in p) for p in paths):raise ValueError('Control characters in queued path')
-   if self.guard:self.guard()
+   await check_guard(self.guard)
    self.seq+=1;future=asyncio.get_running_loop().create_future()
    # Retrieve on abandoned-ticket shutdown too; awaiting still receives the original error.
    future.add_done_callback(lambda f: f.exception() if not f.cancelled() else None)

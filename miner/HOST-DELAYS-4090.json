@@ -1,0 +1,16 @@
+{
+  "source_run": "fused-live-2ac4ac4",
+  "wall_seconds": 420.417532,
+  "completed_batches": 293,
+  "client_GPU_wait_seconds": 357.32873,
+  "native_completed_wall_seconds": 320.32183,
+  "host_gap_seconds": 37.0069,
+  "host_gap_ms_per_batch": 126.303413,
+  "prepare_client_seconds": 312.747602,
+  "prepare_successful_native_seconds": 256.248666777,
+  "raw_file_write_seconds": 141.648828519,
+  "raw_file_write_completed": 295,
+  "all_host_gap_proven_to_be_guards": false,
+  "stage_times_overlap": true,
+  "GPU_tests_for_this_change": 0
+}

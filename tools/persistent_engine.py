@@ -1,5 +1,6 @@
 """One engine process/context for the whole run. One ordered GPU request at a time."""
 import asyncio,contextlib,json,os,signal,time
+from guard_checks import check_guard
 async def terminate(proc):
  if proc and proc.returncode is None:
   with contextlib.suppress(ProcessLookupError):os.killpg(proc.pid,signal.SIGTERM)
@@ -15,10 +16,9 @@ class PersistentEngine:
   task=asyncio.create_task(self.proc.stdout.readline())
   try:
    while True:
-    if self.guard:self.guard()
     if time.monotonic()>deadline:raise TimeoutError('Persistent engine deadline')
     try:line=await asyncio.wait_for(asyncio.shield(task),.2);break
-    except asyncio.TimeoutError:pass
+    except asyncio.TimeoutError:await check_guard(self.guard)
    if not line:raise RuntimeError('Persistent engine exited before acknowledgement')
    if self.events:self.events.write(line);self.events.flush()
    record=json.loads(line)
@@ -30,7 +30,7 @@ class PersistentEngine:
  async def start(self):
   if self.closed:raise RuntimeError('Closed engine cannot restart')
   if self.proc:return
-  if self.guard:self.guard()
+  await check_guard(self.guard)
   if self.evidence:
    self.log=(self.evidence/'persistent-engine.stderr.log').open('xb')
    self.events=(self.evidence/'persistent-engine.events.jsonl').open('xb')
@@ -49,6 +49,7 @@ class PersistentEngine:
   async with self.lock:
    await self.start();paths=[str(input_path.resolve()),str(output_path.resolve())]
    if any(any(ord(c)<32 or ord(c)==127 for c in p) for p in paths):raise ValueError('Control characters in engine path')
+   await check_guard(self.guard)
    self.seq+=1;deadline=time.monotonic()+self.timeout;self.busy=True
    try:
     self.proc.stdin.write((str(self.seq)+'\t'+'\t'.join(paths)+'\n').encode());await self.proc.stdin.drain()

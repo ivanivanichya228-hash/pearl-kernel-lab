@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Experimental Pearl miner loop. Explicit live/submit switches; no GPU state setters."""
+from guard_checks import AsyncGuardChecks,check_guard
 import argparse,asyncio,contextlib,hashlib,ipaddress,json,os,signal,socket,stat,subprocess,sys,tempfile,time
 from dataclasses import dataclass,field
 from decimal import Decimal
@@ -104,7 +105,7 @@ async def stop_child(proc):
    with contextlib.suppress(ProcessLookupError):os.killpg(proc.pid,signal.SIGKILL)
    await proc.wait()
 async def child(argv,timeout,guard=None,log_path=None):
- if guard:guard()
+ await check_guard(guard)
  env=os.environ.copy();env.setdefault('RAYON_NUM_THREADS','4');proc=None;output=None;outcome='running';started=time.monotonic()
  def record(event,**fields):
   if log_path:
@@ -116,10 +117,9 @@ async def child(argv,timeout,guard=None,log_path=None):
   if log_path:output=log_path.open('xb')
   proc=await asyncio.create_subprocess_exec(*map(str,argv),stdout=output or asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.STDOUT if output else asyncio.subprocess.DEVNULL,start_new_session=True,env=env)
   while proc.returncode is None:
-   if guard:guard()
    if time.monotonic()-started>timeout:outcome='deadline';raise ChildFailure('Work stage exceeded deadline')
    try:await asyncio.wait_for(proc.wait(),.2)
-   except asyncio.TimeoutError:pass
+   except asyncio.TimeoutError:await check_guard(guard)
   if proc.returncode:outcome='child_failed';raise ChildFailure('Work stage failed; no share sent')
   outcome='completed'
  except BaseException as e:
@@ -288,8 +288,8 @@ async def main_async(args):
   if not args.allow_live or not args.expected_power_limit_w or not args.gpu or not args.paused_pid or not args.paused_start_ticks:raise ValueError('Live execution needs explicit flags and independent pause identity')
   if args.sanitizer:
    raise ValueError('Use the bounded mine-batch check under external sanitizer/controller, not a persistent sanitizer wrapper')
- guard=None if args.mock_cpu else gpu_guard(args.gpu,args.expected_power_limit_w,args.paused_pid,args.paused_start_ticks)
- if guard:guard()
+ guard=None if args.mock_cpu else AsyncGuardChecks(gpu_guard(args.gpu,args.expected_power_limit_w,args.paused_pid,args.paused_start_ticks))
+ await check_guard(guard)
  if args.transfer_overlap and (not args.pipeline or not args.gpu_noise):raise ValueError('Transfer overlap requires raw-noise GPU pipeline')
  if args.transfer_overlap and not args.mock_cpu:
   available=next(int(line.split()[1])*1024 for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:'))
@@ -319,7 +319,7 @@ async def main_async(args):
  finally:
   if backend.service:await backend.service.close()
   if ram:ram.cleanup()
-  performance=backend.metrics.snapshot();performance['compute_backend']='CPU-reference' if args.mock_cpu else 'GPU';performance['overlap_enabled']=args.pipeline;performance['GPU_noise_requested']=args.gpu_noise;performance['requested_kernel_threads']=args.kernel_threads;performance['matrix_loads_requested']=args.matrix_loads;performance['two_cta_requested']=args.two_cta;performance['triple_stage_requested']=args.triple_stage;performance['fused_stage_requested']=args.fused_stage;performance['transfer_overlap_requested']=args.transfer_overlap;performance['GPU_stage_scope']='submission-to-native-done including queue' if args.transfer_overlap else 'consumer compute wait'
+  performance=backend.metrics.snapshot();performance['compute_backend']='CPU-reference' if args.mock_cpu else 'GPU';performance['overlap_enabled']=args.pipeline;performance['GPU_noise_requested']=args.gpu_noise;performance['requested_kernel_threads']=args.kernel_threads;performance['matrix_loads_requested']=args.matrix_loads;performance['two_cta_requested']=args.two_cta;performance['triple_stage_requested']=args.triple_stage;performance['fused_stage_requested']=args.fused_stage;performance['guard_checks']=guard.describe() if guard else None;performance['transfer_overlap_requested']=args.transfer_overlap;performance['GPU_stage_scope']='submission-to-native-done including queue' if args.transfer_overlap else 'consumer compute wait'
   if backend.service:performance['persistent_engine']=backend.service.describe()
   if ram:performance['RAM_workspace_cleaned']=not ram.path.exists()
   (args.evidence/'performance.json').write_text(json.dumps(performance,indent=2))
