@@ -1,0 +1,15 @@
+{
+  "parent": "c49bd82a660f0ed2575c07f9927851b9f1bccd89",
+  "compiler": "CUDA13.0.88",
+  "SM_targets": [
+    86,
+    89
+  ],
+  "python_tests_passed": 75,
+  "native_invalid_mode_selection_rejected": 3,
+  "unchanged_computational_sources": true,
+  "GPU_executed": false,
+  "real_hashrate_measured": false,
+  "hardware_counters_collected": false,
+  "scope": "diagnostic tooling only; no optimized candidate"
+}

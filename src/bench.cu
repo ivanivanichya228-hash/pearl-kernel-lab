@@ -171,6 +171,57 @@ double measure(const int8_t*a,const int8_t*b,uint32_t*out,Shape p,int threads,do
   cudaGraphExecDestroy(exec);cudaGraphDestroy(graph);cudaEventDestroy(begin);cudaEventDestroy(end);cudaStreamDestroy(stream);
   return ms;
 }
+
+// Diagnostics only: unchanged scalar384 kernel and existing compact filter.
+// No synthetic input is ever connected to a pool or credited as mining work.
+void diagnose384(bool counters) {
+  Shape p{8192,8192,4096,256,16};
+  std::mt19937 rng(91047);
+  std::vector<int8_t>a(std::size_t(p.m)*p.k),b(std::size_t(p.n)*p.k);
+  for(auto&x:a)x=int8_t(int(rng()%255)-127);
+  for(auto&x:b)x=int8_t(int(rng()%255)-127);
+  Buffer<int8_t>da(a.size()),db(b.size());Buffer<uint32_t>out(p.groups()*16),count(1);
+  Buffer<CompactHit>hits(1);da.put(a);db.put(b);
+  KeyTarget context{};for(int i=0;i<8;++i)context.key[i]=0x17293149u+uint32_t(i);
+  // Zero target is local-only. No practically expected hits; append count is
+  // independently reset for every iteration, including profiler replay.
+  HitGeometry geometry{0,0,8192,8192,16};
+  cudaStream_t stream=nullptr;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
+  const auto gemm=[&]{check(launch(da.p,db.p,out.p,nullptr,p,384,stream,64,false));};
+  const auto filter=[&]{check(launch_compact_filter(out.p,uint32_t(p.groups()),context,hits.p,count.p,1,geometry,stream));};
+  for(int i=0;i<3;++i){check(cudaMemsetAsync(count.p,0,4,stream));gemm();filter();}
+  check(cudaStreamSynchronize(stream));
+  if(counters){
+    // Exactly six warm matching launches precede the two measured launches.
+    check(cudaMemsetAsync(count.p,0,4,stream));gemm();filter();check(cudaStreamSynchronize(stream));
+    std::cout<<"{\"phase\":\"counter_targets_completed\",\"kernel_threads\":384,\"matrix_loads\":false,\"warm_matching_launches\":6,\"profile_matching_launches\":2,\"timings_valid\":false,\"pool_connected\":false,\"shares_sent\":0}\n";
+  } else {
+    constexpr int iterations=32;
+    std::vector<cudaEvent_t>events(iterations*3);
+    for(auto&e:events)check(cudaEventCreate(&e));
+    const auto start=std::chrono::steady_clock::now();
+    for(int i=0;i<iterations;++i){
+      check(cudaMemsetAsync(count.p,0,4,stream));
+      check(cudaEventRecord(events[i*3],stream));gemm();
+      check(cudaEventRecord(events[i*3+1],stream));filter();
+      check(cudaEventRecord(events[i*3+2],stream));
+    }
+    check(cudaStreamSynchronize(stream));
+    const double wall_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+    double compute=0,hash=0;
+    for(int i=0;i<iterations;++i){
+      float g=0,h=0;check(cudaEventElapsedTime(&g,events[i*3],events[i*3+1]));
+      check(cudaEventElapsedTime(&h,events[i*3+1],events[i*3+2]));compute+=g;hash+=h;
+      std::cout<<"{\"phase\":\"diagnostic_sample\",\"iteration\":"<<i<<",\"gemm_ms\":"<<g<<",\"filter_ms\":"<<h<<"}\n";
+    }
+    std::cout<<"{\"phase\":\"diagnostic_summary\",\"samples\":"<<iterations
+      <<",\"kernel_threads\":384,\"stage_k\":64,\"matrix_loads\":false,\"resident_input_only\":true,\"gemm_total_ms\":"<<compute
+      <<",\"filter_total_ms\":"<<hash<<",\"host_wall_ms\":"<<wall_ms
+      <<",\"includes_CPU_prepare\":false,\"includes_H2D\":false,\"event_instrumented\":true,\"pool_connected\":false,\"shares_sent\":0,\"hashrate_measured\":false}\n";
+    for(auto e:events)check(cudaEventDestroy(e));
+  }
+  check(cudaStreamDestroy(stream));
+}
 } // namespace
 int main(int argc,char**argv){
   try {
@@ -179,7 +230,7 @@ int main(int argc,char**argv){
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
-        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|kernel384-check|kernel384-compare|matrix-check|matrix-compare] [--device N]\n"
+        std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters] [--device N]\n"
           <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
           <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
@@ -209,19 +260,21 @@ int main(int argc,char**argv){
       else if(s=="--proof-n")shape.proof_n=std::stoi(v);else throw std::runtime_error("unknown option: "+s);
     }
     if(!allow)throw std::runtime_error("GPU execution requires explicit --run-gpu");
-    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="overlap-worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare"&&mode!="matrix-check"&&mode!="matrix-compare")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
+    if((mode!="check"&&mode!="bench"&&mode!="info"&&mode!="filter-check"&&mode!="pipeline-check"&&mode!="mine-batch"&&mode!="worker"&&mode!="overlap-worker"&&mode!="noise-check"&&mode!="compact-check"&&mode!="kernel384-check"&&mode!="kernel384-compare"&&mode!="matrix-check"&&mode!="matrix-compare"&&mode!="kernel-diagnose"&&mode!="kernel-counters")||(candidate!=128&&candidate!=256&&candidate!=384&&candidate!=512)||(stage_k!=32&&stage_k!=64)||(stage_k==64&&candidate!=256&&candidate!=384)||device<0||device>31)
       throw std::runtime_error("invalid options");
     if(matrix_loads&&(candidate!=384||stage_k!=64||(mode!="matrix-check"&&mode!="matrix-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("matrix loads require384/stage64 and matrix mode/worker/mine-batch");
     if((mode=="matrix-check"||mode=="matrix-compare")&&(!matrix_loads||candidate!=384))throw std::runtime_error("matrix mode requires --matrix-loads --candidate 384");
+    if((mode=="kernel-diagnose"||mode=="kernel-counters")&&(candidate!=384||stage_k!=64||matrix_loads))throw std::runtime_error("diagnostics require unchanged scalar384/stage64");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
-    if(mode=="worker"||mode=="overlap-worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"||mode=="matrix-check"||mode=="matrix-compare"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
+    if(mode=="worker"||mode=="overlap-worker"||mode=="noise-check"||mode=="compact-check"||mode=="kernel384-check"||mode=="kernel384-compare"||mode=="matrix-check"||mode=="matrix-compare"||mode=="kernel-diagnose"||mode=="kernel-counters"){if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner)throw std::runtime_error("worker needs a paused original identity before CUDA initialization");}
     shape.validate();check(cudaSetDevice(device));cudaDeviceProp prop{};check(cudaGetDeviceProperties(&prop,device));
     if(prop.major!=8||(prop.minor!=6&&prop.minor!=9))throw std::runtime_error("This experimental build targets SM86/SM89 only");
     char pci[32];check(cudaDeviceGetPCIBusId(pci,sizeof(pci),device));
     std::cout<<"{\"phase\":\"device\",\"name\":"<<quoted(prop.name)<<",\"pci\":"<<quoted(pci)
       <<",\"SMs\":"<<prop.multiProcessorCount<<",\"concurrent_miner_detected\":"<<(miner?"true":"false")<<"}\n";
+    if(mode=="kernel-diagnose"||mode=="kernel-counters"){diagnose384(mode=="kernel-counters");return 0;}
     if(mode=="matrix-check"){verify384(fixtures,true);return 0;}
     if(mode=="kernel384-check"){verify384(fixtures);return 0;}
     if(mode=="kernel384-compare"){

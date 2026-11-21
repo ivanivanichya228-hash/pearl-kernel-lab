@@ -1,3 +1,5 @@
+CURRENT: [COMPUTE-DIAGNOSIS.md](COMPUTE-DIAGNOSIS.md). Diagnostic revision0.16.0, unchanged scalar384 compute/filter. Previous ldmatrix was rejected; no faster-than-SRB result. Only one short phase/counter measurement, no long mining test. Earlier tasks below are historical.
+
 > CURRENT TASK: [LDMATRIX.md](LDMATRIX.md), revision0.15.0. All tasks below are historical. One bounded Mint4090 test only, scalar384 vs collective384, no transfer overlap. No SRBMiner advantage established.
 
 > Revision0.5.0: [LUCKYPOOL-ADAPTER.md](LUCKYPOOL-ADAPTER.md): real-job offline adapter and new GPU hash filter. CPU tests passed; new GPU stage not tested. Older tasks are historical.

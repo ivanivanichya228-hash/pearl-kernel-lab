@@ -83,7 +83,7 @@ def validate_memcheck(output,returncode,mode="check"):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-gpu',action='store_true')
-    p.add_argument('--mode',choices=['check','bench','info','filter-check','pipeline-check','mine-batch','noise-check','compact-check','kernel384-check','kernel384-compare','matrix-check','matrix-compare'],default='check')
+    p.add_argument('--mode',choices=['check','bench','info','filter-check','pipeline-check','mine-batch','noise-check','compact-check','kernel384-check','kernel384-compare','matrix-check','matrix-compare','kernel-diagnose'],default='check')
     p.add_argument('--gpu',default='0',help='physical nvidia-smi index or GPU UUID')
     p.add_argument('--expected-power-limit-w',type=Decimal,required=True)
     p.add_argument('--hash-vectors',type=Path,default=ROOT/'pool/hash-vectors.bin')
@@ -127,7 +127,7 @@ def main():
     help_result=subprocess.run([str(exe),'--help'],capture_output=True,text=True,check=True,timeout=5)
     if '--rounds 1..3' not in help_result.stdout:
         raise ValueError('Stale harness; rebuild the validation revision before any pause')
-    if args.mode in ('kernel384-check','kernel384-compare','matrix-check','matrix-compare'):
+    if args.mode in ('kernel384-check','kernel384-compare','matrix-check','matrix-compare','kernel-diagnose'):
         if args.mode not in help_result.stdout or not args.paused_pid or not args.paused_start_ticks:
             raise ValueError('kernel384 mode needs new engine and original paused identity')
     if args.mode=='compact-check':
@@ -149,7 +149,7 @@ def main():
     env=child_env(sanitizer) if sanitizer else os.environ.copy();env['CUDA_DEVICE_ORDER']='PCI_BUS_ID';env['CUDA_VISIBLE_DEVICES']=uuid
     command=[str(exe),'--run-gpu','--mode',args.mode,'--device','0',
              '--rounds',str(args.rounds),'--warmup',str(args.warmup),'--candidate','256','--stage-k','64','--duration',str(args.duration),'--fixtures',str(args.fixtures.resolve())]
-    if args.mode in ('kernel384-check','kernel384-compare','matrix-check','matrix-compare'):command+=['--candidate','384','--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
+    if args.mode in ('kernel384-check','kernel384-compare','matrix-check','matrix-compare','kernel-diagnose'):command+=['--candidate','384','--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
     if args.mode in ('matrix-check','matrix-compare'):command+=['--matrix-loads']
     if args.mode in ('kernel384-compare','matrix-compare'):command+=['--m','8192','--n','8192','--k','4096','--rank','256','--proof-n','16']
     if args.mode=='compact-check':command+=['--hash-vectors',str(args.hash_vectors.resolve()),'--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]

@@ -1,3 +1,5 @@
+CURRENT: [COMPUTE-DIAGNOSIS.md](COMPUTE-DIAGNOSIS.md). Diagnostic revision0.16.0, unchanged scalar384 compute/filter. Previous ldmatrix was rejected; no faster-than-SRB result. Only one short phase/counter measurement, no long mining test. Earlier tasks below are historical.
+
 Current revision **0.15.0**: [LDMATRIX.md](LDMATRIX.md). New collective matrix-load384 kernel, scalar384 control;168 registers, zero spills,71 CPU tests passed. New GPU validation pending. Previous pinned-transfer path was rejected on the rig (0.97853x); keep it OFF. No demonstrated advantage over SRBMiner. Use ONLY the current bounded task.
 
 Historical revision notes follow.
