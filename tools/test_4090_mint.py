@@ -28,13 +28,13 @@ def validation_budget(duration,warmup,rounds,timeout,mode,sanitizer):
         not 10<=timeout<=60):
         raise ValueError('Invalid validation duration/rounds/timeout')
     scheduled=4*rounds*(duration+warmup)
-    if mode in ('bench','kernel384-compare','matrix-compare','two-cta-compare') and (scheduled>45 or timeout<scheduled+10):
+    if mode in ('bench','kernel384-compare','matrix-compare','two-cta-compare','triple-compare') and (scheduled>45 or timeout<scheduled+10):
         raise ValueError('Benchmark exceeds pause budget or lacks 10s check margin')
-    if mode in ('kernel384-compare','matrix-compare','two-cta-compare') and (duration!=1 or warmup!=.25 or rounds!=1):
+    if mode in ('kernel384-compare','matrix-compare','two-cta-compare','triple-compare') and (duration!=1 or warmup!=.25 or rounds!=1):
         raise ValueError('kernel384 comparison is exactly four1s legs with .25s warmups')
-    if sanitizer and mode not in ('check','filter-check','pipeline-check','mine-batch','noise-check','compact-check','kernel384-check','matrix-check','two-cta-check'):
+    if sanitizer and mode not in ('check','filter-check','pipeline-check','mine-batch','noise-check','compact-check','kernel384-check','matrix-check','two-cta-check','triple-check'):
         raise ValueError('Compute Sanitizer is restricted to correctness mode')
-    return scheduled if mode in ('bench','kernel384-compare','matrix-compare','two-cta-compare') else 0
+    return scheduled if mode in ('bench','kernel384-compare','matrix-compare','two-cta-compare','triple-compare') else 0
 
 def terminate_group(proc):
     # Popen owns a new session. Only terminate this experiment and its descendants.
@@ -53,12 +53,13 @@ def validate_memcheck(output,returncode,mode="check"):
     summaries=re.findall(r'ERROR SUMMARY:\s*(\d+) errors\b',output)
     if not summaries or any(int(n)!=0 for n in summaries):
         raise ValueError('No clean memcheck summary; GPU gate remains closed')
-    if mode in ('compact-check','kernel384-check','matrix-check','two-cta-check'):
+    if mode in ('compact-check','kernel384-check','matrix-check','two-cta-check','triple-check'):
         leaks=re.findall(r'LEAK SUMMARY:\s*(\d+) bytes leaked in (\d+) allocations\b',output)
         if not leaks or any(int(a) or int(b) for a,b in leaks):
             raise ValueError('No clean leak summary for compact GPU path')
     correctness=False
     two_cta_resources={}
+    triple_resources={}
     filter_passed=False
     for line in output.splitlines():
         try:record=json.loads(line)
@@ -81,6 +82,11 @@ def validate_memcheck(output,returncode,mode="check"):
             two_cta_resources[record.get('proof_n')]=record
         if isinstance(record,dict) and mode=='two-cta-check' and record.get('phase')=='two_cta_correctness':
             correctness=(record.get('two_cta') is True and record.get('matrix_loads') is False and record.get('passed') is True and record.get('fixtures')==6 and record.get('full_matrix_and_transcript') is True and record.get('non_debug_transcript_checked') is True and record.get('other_kernels_executed') is False)
+        if isinstance(record,dict) and mode=='triple-check' and record.get('phase')=='triple_stage_resources':triple_resources[record.get('proof_n')]=record
+        if isinstance(record,dict) and mode=='triple-check' and record.get('phase')=='triple_stage_correctness':
+            correctness=(record.get('triple_stage') is True and record.get('matrix_loads') is False and record.get('passed') is True and record.get('fixtures')==6 and record.get('full_matrix_and_transcript') is True and record.get('non_debug_transcript_checked') is True and record.get('other_kernels_executed') is False)
+    if mode=='triple-check':
+        correctness=correctness and set(triple_resources)=={8,16} and all(r.get('triple_stage') is True and r.get('pipeline_stages')==(3 if pn==16 else 2) and type(r.get('registers')) is int and 0<r['registers']<=168 and r.get('local_bytes')==0 and r.get('active_blocks',0)>=1 for pn,r in triple_resources.items())
     if mode=='two-cta-check':
         correctness=correctness and set(two_cta_resources)=={8,16} and all(r.get('two_cta') is True and r.get('matrix_loads') is False and type(r.get('registers')) is int and 0<r['registers']<=128 and r.get('local_bytes')==0 and r.get('active_blocks',0)>=2 for r in two_cta_resources.values())
     if mode=='filter-check':correctness=filter_passed
@@ -90,7 +96,7 @@ def validate_memcheck(output,returncode,mode="check"):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-gpu',action='store_true')
-    p.add_argument('--mode',choices=['check','bench','info','filter-check','pipeline-check','mine-batch','noise-check','compact-check','kernel384-check','kernel384-compare','matrix-check','matrix-compare','kernel-diagnose','two-cta-check','two-cta-compare'],default='check')
+    p.add_argument('--mode',choices=['check','bench','info','filter-check','pipeline-check','mine-batch','noise-check','compact-check','kernel384-check','kernel384-compare','matrix-check','matrix-compare','kernel-diagnose','two-cta-check','two-cta-compare','triple-check','triple-compare'],default='check')
     p.add_argument('--gpu',default='0',help='physical nvidia-smi index or GPU UUID')
     p.add_argument('--expected-power-limit-w',type=Decimal,required=True)
     p.add_argument('--hash-vectors',type=Path,default=ROOT/'pool/hash-vectors.bin')
@@ -139,6 +145,8 @@ def main():
             raise ValueError('kernel384 mode needs new engine and original paused identity')
     if args.mode in ('two-cta-check','two-cta-compare'):
         if args.mode not in help_result.stdout or not args.paused_pid or not args.paused_start_ticks:raise ValueError('two-cta needs rebuilt engine and paused identity')
+    if args.mode in ('triple-check','triple-compare'):
+        if args.mode not in help_result.stdout or not args.paused_pid or not args.paused_start_ticks:raise ValueError('triple modes need rebuilt engine and paused identity')
     if args.mode=='compact-check':
         if 'compact-check' not in help_result.stdout or not args.paused_pid or not args.paused_start_ticks:
             raise ValueError('compact-check needs rebuilt engine and original paused identity')
@@ -161,7 +169,8 @@ def main():
     if args.mode in ('kernel384-check','kernel384-compare','matrix-check','matrix-compare','kernel-diagnose'):command+=['--candidate','384','--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
     if args.mode in ('matrix-check','matrix-compare'):command+=['--matrix-loads']
     if args.mode in ('two-cta-check','two-cta-compare'):command+=['--candidate','256','--two-cta','--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
-    if args.mode in ('kernel384-compare','matrix-compare','two-cta-compare'):command+=['--m','8192','--n','8192','--k','4096','--rank','256','--proof-n','16']
+    if args.mode in ('triple-check','triple-compare'):command+=['--candidate','384','--triple-stage','--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
+    if args.mode in ('kernel384-compare','matrix-compare','two-cta-compare','triple-compare'):command+=['--m','8192','--n','8192','--k','4096','--rank','256','--proof-n','16']
     if args.mode=='compact-check':command+=['--hash-vectors',str(args.hash_vectors.resolve()),'--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
     if args.mode=='noise-check':command+=['--work-input',str(args.work_input.resolve()),'--noise-reference',str(args.noise_reference.resolve()),'--paused-pid',str(args.paused_pid),'--paused-start-ticks',str(args.paused_start_ticks)]
     if args.mode=='mine-batch':command+=['--work-input',str(args.work_input.resolve()),'--work-output',str(args.work_output.resolve())]

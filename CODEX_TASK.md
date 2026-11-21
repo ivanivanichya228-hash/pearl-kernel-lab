@@ -1,3 +1,5 @@
+CURRENT: [TRIPLE-STAGE-KERNEL.md](TRIPLE-STAGE-KERNEL.md), revision0.20.0. Separate192x256/384 kernel,three swizzled64-wide stages for proof16;original scalar384 control unchanged.0spills,98CPU tests passed.GPU speed untested.One bounded correctness/shortgate then conditional live test.Earlier tasks historical.
+
 CURRENT: [TWO-CTA-KERNEL.md](TWO-CTA-KERNEL.md), revision0.19.0. NEW128x128/256 computational kernel,107 registers,45056/49152 dynamic shared bytes,zero spills. Goal>=2resident CTAs; GPU speed not measured. One bounded correctness/short comparison then conditional live test. Earlier tasks below are historical.
 
 CURRENT TASK: [ROOT-HARDWARE-PROFILE.md](ROOT-HARDWARE-PROFILE.md), revision0.18.0. One fixed root profiler entry; root-owned frozen code, pinned binaries/GPU, transient SYS_ADMIN-only unit. Preflight BEFORE pause. No new kernel or long test. Earlier tasks below are historical.

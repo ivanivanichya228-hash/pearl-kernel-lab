@@ -1,0 +1,86 @@
+{
+  "parent": "76f4ad1db3cbd3138754960c87929ce3b1e8bed8",
+  "compiler": "CUDA13.0.88",
+  "variants": [
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi16ELb0EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi16ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi8ELb0EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 166,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi8ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_86",
+      "registers": 167,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi16ELb0EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi16ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 168,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi8ELb0EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 166,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    {
+      "symbol": "_ZN9pearl_lab41_GLOBAL__N__56662e10_9_kernel_cu_38fbf5e512pearl_tripleILi8ELb1EEEvPKaS3_PjPiNS_5ShapeE",
+      "arch": "sm_89",
+      "registers": 167,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    }
+  ],
+  "python_tests_passed": 98,
+  "original_kernel_body_unchanged": true,
+  "tile": [
+    192,
+    256
+  ],
+  "dynamic_shared_bytes": {
+    "proof16_three_stages": 98304,
+    "proof8_two_stages": 81920
+  },
+  "physical_layout_and_transcript_CPU_model_passed": true,
+  "async_queue_short_tails_CPU_model_passed": true,
+  "native_invalid_selections_refused": 3,
+  "GPU_executed": false,
+  "hardware_speedup": null,
+  "faster_than_SRBMiner_established": false
+}

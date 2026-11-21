@@ -10,7 +10,7 @@ ENGINE_SHA='3e935b1171b3e925db9aeadd901564eaa3d4500bcb19a29dd2aa50df40e5f7c1'
 SYS_ADMIN=1<<21
 OUTPUT_ROOT=Path('/var/lib/pearl-root-counter-profile')
 # Filled from this pinned repository; these are the ONLY project modules imported.
-DEPENDENCIES = {'tools/diagnose_compute.py': 'caa532c0b553a962212aef7b867963d7d64e6a3cadd5cc373b26044d6310d29b', 'tools/counter_access.py': '4fb92af46ccb091ed57cb6e2d4f96336cf73dc5c24544fc97449b3ab6f3a5c07', 'tools/pearl_miner.py': 'f4c3934daa9cc97ac08f9810c39561599929d97d476098f0fb10811a9ac9b626', 'tools/luckypool_adapter.py': 'd92ddea02c3215d15df96e6b805e5d9ae4d66af9fca45d96ad41a5a49b7b7764', 'tools/miner_metrics.py': '1429cd65c342fb901aa09f8cbcb24e428d7041120b1d7b7a5a5c18e69d44b254'}
+DEPENDENCIES = {'tools/diagnose_compute.py': 'caa532c0b553a962212aef7b867963d7d64e6a3cadd5cc373b26044d6310d29b', 'tools/counter_access.py': '4fb92af46ccb091ed57cb6e2d4f96336cf73dc5c24544fc97449b3ab6f3a5c07', 'tools/pearl_miner.py': '705de26b9a998f511427fcfc357df9621e63eb77c6af181e69cb698d06651328', 'tools/luckypool_adapter.py': 'd92ddea02c3215d15df96e6b805e5d9ae4d66af9fca45d96ad41a5a49b7b7764', 'tools/miner_metrics.py': '1429cd65c342fb901aa09f8cbcb24e428d7041120b1d7b7a5a5c18e69d44b254'}
 
 def root_scope(status,auxv,uid,gid):
  fields=dict(line.split(':',1) for line in status.splitlines() if ':' in line)

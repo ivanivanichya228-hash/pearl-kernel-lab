@@ -20,7 +20,7 @@ constexpr int stage384_shared_bytes(int pn) {
 // threads=128 selects compact 64x128 with lane-resident transcript.
 // threads=256/512 preserve the original 128x384 shared-history baselines.
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* transcript,
-                   int32_t* debug_matrix, Shape p, int threads, cudaStream_t stream, int stage_k = 32, bool matrix_loads = false, bool two_cta = false);
+                   int32_t* debug_matrix, Shape p, int threads, cudaStream_t stream, int stage_k = 32, bool matrix_loads = false, bool two_cta = false, bool triple_stage = false);
 cudaError_t resource_info(int threads, int proof_n, bool debug,
-                         cudaFuncAttributes* attr, int* active_blocks, int stage_k = 32, bool matrix_loads = false, bool two_cta = false);
+                         cudaFuncAttributes* attr, int* active_blocks, int stage_k = 32, bool matrix_loads = false, bool two_cta = false, bool triple_stage = false);
 }  // namespace pearl_lab

@@ -55,6 +55,8 @@ __device__ __forceinline__ void prefetch(int8_t* stage, const int8_t* a,
   asm volatile("cp.async.commit_group;" ::: "memory");
 }
 
+#include "triple_stage.cuh"
+
 template<int Threads, int ProofN, bool Debug, int StageK, bool MatrixLoads = false, bool TwoCTA = false>
 __global__ __launch_bounds__(Threads, 1)
 void pearl_int8(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
@@ -233,9 +235,14 @@ cudaError_t info(cudaFuncAttributes* attr, int* blocks) {
 }
 } // namespace
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
-                   int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k, bool matrix_loads, bool two_cta) {
+                   int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k, bool matrix_loads, bool two_cta, bool triple_stage) {
   try { p.validate(); } catch (...) { return cudaErrorInvalidValue; }
   if (!a || !bt || !out || (threads != 128 && threads != 256 && threads != 384 && threads != 512)) return cudaErrorInvalidValue;
+  if(triple_stage){
+    if(threads!=384||stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
+    if(p.proof_n==8){if(matrix)return triple_run<8,true>(a,bt,out,matrix,p,stream);return triple_run<8,false>(a,bt,out,matrix,p,stream);}
+    if(matrix)return triple_run<16,true>(a,bt,out,matrix,p,stream);return triple_run<16,false>(a,bt,out,matrix,p,stream);
+  }
   if(two_cta){
     if(threads!=256||stage_k!=64||matrix_loads)return cudaErrorInvalidValue;
     if(p.proof_n==8){if(matrix)return run<256,8,true,64,false,true>(a,bt,out,matrix,p,stream);return run<256,8,false,64,false,true>(a,bt,out,matrix,p,stream);}
@@ -267,8 +274,14 @@ cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
   return cudaErrorInvalidValue;
 }
 cudaError_t resource_info(int threads, int pn, bool debug,
-                         cudaFuncAttributes* attr, int* blocks, int stage_k, bool matrix_loads, bool two_cta) {
+                         cudaFuncAttributes* attr, int* blocks, int stage_k, bool matrix_loads, bool two_cta, bool triple_stage) {
   if (!attr || !blocks) return cudaErrorInvalidValue;
+  if(triple_stage){
+    if(threads!=384||stage_k!=64||matrix_loads||two_cta)return cudaErrorInvalidValue;
+    if(pn==8){if(debug)return triple_info<8,true>(attr,blocks);return triple_info<8,false>(attr,blocks);}
+    if(pn!=16)return cudaErrorInvalidValue;
+    if(debug)return triple_info<16,true>(attr,blocks);return triple_info<16,false>(attr,blocks);
+  }
   if(two_cta){
     if(threads!=256||stage_k!=64||matrix_loads)return cudaErrorInvalidValue;
     if(pn==8){if(debug)return info<256,8,true,64,false,true>(attr,blocks);return info<256,8,false,64,false,true>(attr,blocks);}
