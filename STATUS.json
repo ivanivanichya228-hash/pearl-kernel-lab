@@ -1,5 +1,5 @@
 {
-  "version": "0.11.0",
+  "version": "0.12.0",
   "date": "2026-11-21",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -314,9 +314,9 @@
   "five_step_progress": {
     "1_persistent_GPU_process": "previous e3c4af5 real Mint4090 run verified 82 requests, one PID, generation1",
     "2_RAM_and_overlap": "previous real run fresh 10.895839M groups/s; zero shares; descriptive own-window comparison only",
-    "3_GPU_preparation": "previous GPU noise verified on Mint4090; current CPU root-only + parallel RNG implemented, locally verified; raw RNG/roots NOT on GPU",
-    "4_new_build": "new prepared bridge, Rust/CPU proofs/root-audit/54 Python tests passed; CUDA unchanged",
-    "5_new_rig_test": "pending single task ROOT-PREPARE.md; no new GPU test here"
+    "3_GPU_preparation": "CPU roots/RNG and GPU noise previously verified; current compact GPU hit transfer implemented, no new GPU execution here",
+    "4_new_build": "CUDA SM86/89 compiled; CPU mapping, 56 Python checks, official boundary proofs and CLI evidence retention passed",
+    "5_new_rig_test": "pending single task COMPACT-TRANSFER.md"
   },
   "persistent_pipeline": {
     "task": "PIPELINE-REBUILD.md",
@@ -557,6 +557,38 @@
       "tampered_A_seed_B_seed_target_matrix_rejected": 4,
       "GPU_executed": false,
       "external_network_used": false
+    }
+  },
+  "compact_transfer": {
+    "task": "COMPACT-TRANSFER.md",
+    "GPU_executed": false,
+    "speedup_measured": false,
+    "previous_reported_fresh_groups_per_second": 28882357.69321517,
+    "CPU_evidence": {
+      "CUDA_compiler": "13.0.88",
+      "architectures": [
+        "sm_86",
+        "sm_89"
+      ],
+      "CUDA_build_succeeded": true,
+      "compiled_binary_sha256": "acb6f6a39abcd24751f755c2d4ca58b541d2c697462b68e8f0d3d3905e751e75",
+      "GPU_executed": false,
+      "GPU_speedup_measured": false,
+      "native_global_index_reference_passed": true,
+      "capacity_geometry_overflow_bounds_passed": true,
+      "mixed_target_CPU_fixture_has_hits_and_misses": true,
+      "Python_checks_passed": 56,
+      "cross_slab_CPU_fixtures": {
+        "cases": 3,
+        "all_groups": 1030,
+        "official_proofs": 10,
+        "row_and_column_boundaries": true
+      },
+      "CLI_verified_proofs_retained_after_workspace_cleanup": 8,
+      "Rust_bridge_changed": false,
+      "GEMM_kernel_changed": false,
+      "noise_kernel_changed": false,
+      "compact_GPU_filter_and_executor_changed": true
     }
   }
 }

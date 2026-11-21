@@ -1,0 +1,26 @@
+{
+  "CUDA_compiler": "13.0.88",
+  "architectures": [
+    "sm_86",
+    "sm_89"
+  ],
+  "CUDA_build_succeeded": true,
+  "compiled_binary_sha256": "acb6f6a39abcd24751f755c2d4ca58b541d2c697462b68e8f0d3d3905e751e75",
+  "GPU_executed": false,
+  "GPU_speedup_measured": false,
+  "native_global_index_reference_passed": true,
+  "capacity_geometry_overflow_bounds_passed": true,
+  "mixed_target_CPU_fixture_has_hits_and_misses": true,
+  "Python_checks_passed": 56,
+  "cross_slab_CPU_fixtures": {
+    "cases": 3,
+    "all_groups": 1030,
+    "official_proofs": 10,
+    "row_and_column_boundaries": true
+  },
+  "CLI_verified_proofs_retained_after_workspace_cleanup": 8,
+  "Rust_bridge_changed": false,
+  "GEMM_kernel_changed": false,
+  "noise_kernel_changed": false,
+  "compact_GPU_filter_and_executor_changed": true
+}

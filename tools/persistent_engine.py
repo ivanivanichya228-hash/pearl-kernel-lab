@@ -9,7 +9,7 @@ async def terminate(proc):
    await proc.wait()
 class PersistentEngine:
  def __init__(self,argv,guard=None,evidence=None,timeout=45):
-  self.argv=list(map(str,argv));self.guard=guard;self.evidence=evidence;self.timeout=timeout;self.proc=None;self.seq=0;self.lock=asyncio.Lock();self.log=None;self.closed=False;self.generations=[];self.pid=None;self.starts=0;self.busy=False;self.shutdown_forced=False
+  self.argv=list(map(str,argv));self.guard=guard;self.evidence=evidence;self.timeout=timeout;self.proc=None;self.seq=0;self.lock=asyncio.Lock();self.log=None;self.events=None;self.closed=False;self.generations=[];self.pid=None;self.starts=0;self.busy=False;self.shutdown_forced=False
  async def line(self,deadline):
   task=asyncio.create_task(self.proc.stdout.readline())
   try:
@@ -19,6 +19,7 @@ class PersistentEngine:
     try:line=await asyncio.wait_for(asyncio.shield(task),.2);break
     except asyncio.TimeoutError:pass
    if not line:raise RuntimeError('Persistent engine exited before acknowledgement')
+   if self.events:self.events.write(line);self.events.flush()
    record=json.loads(line)
    if not isinstance(record,dict):raise RuntimeError('Invalid engine response')
    return record
@@ -29,7 +30,9 @@ class PersistentEngine:
   if self.closed:raise RuntimeError('Closed engine cannot restart')
   if self.proc:return
   if self.guard:self.guard()
-  if self.evidence:self.log=(self.evidence/'persistent-engine.stderr.log').open('xb')
+  if self.evidence:
+   self.log=(self.evidence/'persistent-engine.stderr.log').open('xb')
+   self.events=(self.evidence/'persistent-engine.events.jsonl').open('xb')
   self.proc=await asyncio.create_subprocess_exec(*self.argv,stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=self.log or asyncio.subprocess.DEVNULL,start_new_session=True,limit=1024*1024)
   self.starts+=1;deadline=time.monotonic()+15
   try:
@@ -62,6 +65,7 @@ class PersistentEngine:
  async def close(self):
   if self.closed and (self.proc is None or self.proc.returncode is not None):
    if self.log:self.log.close();self.log=None
+   if self.events:self.events.close();self.events=None
    return
   self.closed=True
   if self.proc and self.proc.returncode is None and not self.busy:
@@ -71,4 +75,5 @@ class PersistentEngine:
   if self.proc and self.proc.returncode is None:self.shutdown_forced=True
   await terminate(self.proc)
   if self.log:self.log.close();self.log=None
+  if self.events:self.events.close();self.events=None
  def describe(self):return {'process_starts':self.starts,'pid':self.pid,'completed_requests':len(self.generations),'resource_generations':self.generations,'automatic_restarts':False,'shutdown_forced':self.shutdown_forced,'exit_code':self.proc.returncode if self.proc else None,'process_reaped':self.proc is None or self.proc.returncode is not None}

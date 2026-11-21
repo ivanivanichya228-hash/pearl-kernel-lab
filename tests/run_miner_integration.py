@@ -41,6 +41,11 @@ async def test(args):
    else:assert len(list((tmp/'evidence').glob('*/GPU.log')))==2
    assert len(list((tmp/'evidence/accepted').glob('*.proof.bin')))==6
    assert len(list((tmp/'evidence/accepted').glob('*.receipt.json')))==6
+   retained=list((tmp/'evidence').glob('*/candidates/*.proof.bin'));assert len(retained)==8
+   assert {hashlib.sha256(p.read_bytes()).hexdigest() for p in retained}==seen
+   if args.pipeline:
+    native=[json.loads(line) for line in (tmp/'evidence/persistent-engine.events.jsonl').read_text().splitlines()]
+    assert [r['seq'] for r in native if r.get('phase')=='worker_done']==[1,2]
 
   finally:
    server.close();await server.wait_closed()
@@ -51,7 +56,7 @@ async def test(args):
   assert not errors,errors
   assert counts.batches==2 and counts.sent==8 and counts.accepted==6 and counts.rejected==2 and counts.unknown==0,counts.public()
   assert not any(workdir.iterdir()),'temporary work not removed'
-  result={'GPU_noise_requested':args.gpu_noise,'pipeline_enabled':args.pipeline,'single_persistent_process_verified':args.pipeline,'RAM_workspace_cleaned':performance.get('RAM_workspace_cleaned'),'actual_CLI_entry_tested':True,'full_wall_rate_accounting_checked':True,'completed_fresh_candidate_groups':8,'loopback_pool_only':True,'external_pool_contacted':False,'GPU_executed':False,'arithmetic_backend':'independent C++ CPU reference','official_verifier_checked_each_received_proof':True,'fresh_unique_proof_hashes':len(seen),'counts':counts.public(),'real_pool_share_accepted':False,'GPU_live_worker_tested':False,'temporary_work_cleaned':True}
+  result={'verified_candidate_proofs_retained':8,'GPU_noise_requested':args.gpu_noise,'pipeline_enabled':args.pipeline,'single_persistent_process_verified':args.pipeline,'RAM_workspace_cleaned':performance.get('RAM_workspace_cleaned'),'actual_CLI_entry_tested':True,'full_wall_rate_accounting_checked':True,'completed_fresh_candidate_groups':8,'loopback_pool_only':True,'external_pool_contacted':False,'GPU_executed':False,'arithmetic_backend':'independent C++ CPU reference','official_verifier_checked_each_received_proof':True,'fresh_unique_proof_hashes':len(seen),'counts':counts.public(),'real_pool_share_accepted':False,'GPU_live_worker_tested':False,'temporary_work_cleaned':True}
   (ROOT/('miner/GPU-NOISE-LOOPBACK-RESULT.json' if args.gpu_noise else 'miner/PIPELINE-LOOPBACK-RESULT.json' if args.pipeline else 'miner/LOOPBACK-RESULT.json')).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
 def main():
  p=argparse.ArgumentParser();p.add_argument('--pipeline',action='store_true');p.add_argument('--gpu-noise',action='store_true');p.add_argument('--oracle',type=Path,required=True);p.add_argument('--engine',type=Path,required=True);args=p.parse_args();args.oracle=args.oracle.resolve();args.engine=args.engine.resolve();asyncio.run(test(args))

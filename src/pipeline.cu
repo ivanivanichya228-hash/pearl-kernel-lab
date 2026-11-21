@@ -3,6 +3,7 @@
 #include "filter.cuh"
 #include <filesystem>
 #include <iostream>
+#include <chrono>
 namespace pearl_lab {
 namespace {
 void checked(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
@@ -48,40 +49,53 @@ template<class T>struct Reusable{
  ~Reusable(){if(p)cudaFree(p);}
 };
 struct MappingFence{cudaStream_t stream;~MappingFence(){cudaStreamSynchronize(stream);}};
+struct EventMarks{
+ cudaEvent_t e[5]{};
+ EventMarks(){try{for(auto&x:e)checked(cudaEventCreate(&x));}catch(...){for(auto x:e)if(x)cudaEventDestroy(x);throw;}}
+ ~EventMarks(){for(auto x:e)if(x)cudaEventDestroy(x);}
+ float elapsed(int a,int b){float ms=0;checked(cudaEventElapsedTime(&ms,e[a],e[b]));return ms;}
+};
 class MiningExecutor{
- Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,indices,count,permutation;Stream stream;uint64_t generation=0;
+ Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,count,permutation;Reusable<CompactHit>packed;Stream stream;uint64_t generation=0;
  public:
  uint64_t run(const std::string&path,const std::string&output){
+  const auto started=std::chrono::steady_clock::now();
   if(output.empty()||std::filesystem::exists(output))throw std::runtime_error("new hits output path required");
-  const MappedMiningWork w(path);MappingFence fence{stream.s};const auto&p=w.info.shape;constexpr int slab=8192;
+  const MappedMiningWork w(path);MappingFence fence{stream.s};const auto&p=w.info.shape;constexpr int slab=8192;constexpr uint32_t capacity=4096;
   const std::size_t maxgroups=std::size_t(std::min(slab,p.m)/16)*(std::min(slab,p.n)/p.proof_n);
   const std::size_t uniform_bytes=w.info.raw_input?std::size_t(std::max(p.m,p.n))*p.rank:0;
-  if(uniform_bytes>uniform.capacity||(w.info.raw_input&&std::size_t(p.k*2)>permutation.capacity)||w.a_bytes>a.capacity||w.b_bytes>b.capacity||maxgroups*16>transcripts.capacity||maxgroups>indices.capacity||!count.p){
-   checked(cudaStreamSynchronize(stream.s));a.clear();b.clear();transcripts.clear();indices.clear();count.clear();uniform.clear();permutation.clear();
+  if(uniform_bytes>uniform.capacity||(w.info.raw_input&&std::size_t(p.k*2)>permutation.capacity)||w.a_bytes>a.capacity||w.b_bytes>b.capacity||maxgroups*16>transcripts.capacity||!count.p||packed.capacity<capacity){
+   checked(cudaStreamSynchronize(stream.s));a.clear();b.clear();transcripts.clear();count.clear();uniform.clear();permutation.clear();packed.clear();
    std::size_t free=0,totalmem=0;checked(cudaMemGetInfo(&free,&totalmem));
-   if(w.a_bytes+w.b_bytes+maxgroups*68+uniform_bytes+std::size_t(p.k)*8+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
-   a.allocate(w.a_bytes);b.allocate(w.b_bytes);transcripts.allocate(maxgroups*16);indices.allocate(maxgroups);count.allocate(1);if(w.info.raw_input){uniform.allocate(uniform_bytes);permutation.allocate(p.k*2);}++generation;
+   if(w.a_bytes+w.b_bytes+maxgroups*64+capacity*sizeof(CompactHit)+uniform_bytes+std::size_t(p.k)*8+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
+   a.allocate(w.a_bytes);b.allocate(w.b_bytes);transcripts.allocate(maxgroups*16);count.allocate(1);packed.allocate(capacity);if(w.info.raw_input){uniform.allocate(uniform_bytes);permutation.allocate(p.k*2);}++generation;
   }
-  checked(cudaMemcpyAsync(a.p,w.a,w.a_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaMemcpyAsync(b.p,w.bt,w.b_bytes,cudaMemcpyHostToDevice,stream.s));
-  float noise_ms=0;
+  EventMarks marks;checked(cudaEventRecord(marks.e[0],stream.s));
+  checked(cudaMemcpyAsync(a.p,w.a,w.a_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaMemcpyAsync(b.p,w.bt,w.b_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaEventRecord(marks.e[1],stream.s));
   if(w.info.raw_input){
-   struct Events{cudaEvent_t a=nullptr,b=nullptr;Events(){checked(cudaEventCreate(&a));try{checked(cudaEventCreate(&b));}catch(...){cudaEventDestroy(a);a=nullptr;throw;}}~Events(){if(a)cudaEventDestroy(a);if(b)cudaEventDestroy(b);}} events;
-   checked(cudaMemsetAsync(count.p,0,4,stream.s));checked(cudaEventRecord(events.a,stream.s));
+   checked(cudaMemsetAsync(count.p,0,4,stream.s));
    NoiseKey ka{},kb{};std::copy(w.info.context.key,w.info.context.key+8,ka.key);std::copy(w.info.b_noise_key,w.info.b_noise_key+8,kb.key);ka.is_a=true;kb.is_a=false;
    checked(launch_apply_noise(a.p,p.m,p.k,p.rank,ka,uniform.p,permutation.p,count.p,stream.s));checked(launch_apply_noise(b.p,p.n,p.k,p.rank,kb,uniform.p,permutation.p,count.p,stream.s));
-   checked(cudaEventRecord(events.b,stream.s));checked(cudaStreamSynchronize(stream.s));uint32_t error=0;checked(cudaMemcpy(&error,count.p,4,cudaMemcpyDeviceToHost));if(error)throw std::runtime_error("GPU raw/noisy range error");checked(cudaEventElapsedTime(&noise_ms,events.a,events.b));
-  }
-  std::vector<MiningHit>hits;
+   checked(cudaEventRecord(marks.e[2],stream.s));checked(cudaStreamSynchronize(stream.s));uint32_t error=0;checked(cudaMemcpy(&error,count.p,4,cudaMemcpyDeviceToHost));if(error)throw std::runtime_error("GPU raw/noisy range error");
+  }else checked(cudaEventRecord(marks.e[2],stream.s));
+  // One bounded append queue for the ENTIRE batch. A filter copies winning words
+  // on this same stream BEFORE the next GEMM overwrites the shared transcript slab.
+  checked(cudaMemsetAsync(count.p,0,4,stream.s));uint32_t slabs=0;
   for(int r=0;r<p.m;r+=slab){for(int c=0;c<p.n;c+=slab){
    Shape local{std::min(slab,p.m-r),std::min(slab,p.n-c),p.k,p.rank,p.proof_n};
    checked(launch(a.p+std::size_t(r)*p.k,b.p+std::size_t(c)*p.k,transcripts.p,nullptr,local,256,stream.s,64));
-   checked(launch_jackpot_filter(transcripts.p,local.groups(),w.info.context,indices.p,count.p,uint32_t(local.groups()),stream.s));checked(cudaStreamSynchronize(stream.s));
-   uint32_t found=0;checked(cudaMemcpy(&found,count.p,4,cudaMemcpyDeviceToHost));if(found>local.groups()||hits.size()+found>4096)throw std::runtime_error("hit queue bound exceeded; no partial output");
-   std::vector<uint32_t>ix(found);if(found)checked(cudaMemcpy(ix.data(),indices.p,found*4,cudaMemcpyDeviceToHost));std::sort(ix.begin(),ix.end());
-   for(auto i:ix){if(i>=local.groups())throw std::runtime_error("invalid device hit index");MiningHit h{};h.index=global_group_index(i,r,c,local.n,p.n,p.proof_n);checked(cudaMemcpy(h.transcript,transcripts.p+std::size_t(i)*16,64,cudaMemcpyDeviceToHost));hits.push_back(h);}
+   checked(launch_compact_filter(transcripts.p,uint32_t(local.groups()),w.info.context,packed.p,count.p,capacity,HitGeometry{uint32_t(r),uint32_t(c),uint32_t(local.n),uint32_t(p.n),uint32_t(p.proof_n)},stream.s));++slabs;
   }}
+  checked(cudaEventRecord(marks.e[3],stream.s));uint32_t found=0;
+  checked(cudaMemcpyAsync(&found,count.p,4,cudaMemcpyDeviceToHost,stream.s));checked(cudaStreamSynchronize(stream.s));
+  if(found>capacity)throw std::runtime_error("compact hit queue overflow; no partial output");
+  std::vector<CompactHit>collected(found);if(found)checked(cudaMemcpyAsync(collected.data(),packed.p,found*sizeof(CompactHit),cudaMemcpyDeviceToHost,stream.s));
+  checked(cudaEventRecord(marks.e[4],stream.s));checked(cudaStreamSynchronize(stream.s));
+  std::sort(collected.begin(),collected.end(),[](const CompactHit&a,const CompactHit&b){return a.index<b.index;});
+  std::vector<MiningHit>hits;hits.reserve(found);for(const auto&item:collected){if(item.index>=p.groups()||(!hits.empty()&&hits.back().index==item.index))throw std::runtime_error("compact global index/duplicate");MiningHit h{};h.index=item.index;std::copy(item.transcript,item.transcript+16,h.transcript);hits.push_back(h);}
   write_mining_hits(w.info,hits,output,true);
-  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"hits\":"<<hits.size()<<",\"GPU_noise_applied\":"<<(w.info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<noise_ms<<",\"target_modified\":false}\n";return generation;
+  const auto wall_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
+  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(w.info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<marks.elapsed(0,1)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
  }
 };
 }

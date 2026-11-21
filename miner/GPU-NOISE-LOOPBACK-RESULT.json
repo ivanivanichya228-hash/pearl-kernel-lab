@@ -1,4 +1,5 @@
 {
+  "verified_candidate_proofs_retained": 8,
   "GPU_noise_requested": true,
   "pipeline_enabled": true,
   "single_persistent_process_verified": true,

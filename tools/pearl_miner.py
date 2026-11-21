@@ -172,10 +172,19 @@ class Backend:
    i=hit.get('index');words=hit.get('transcript')
    if type(i) is not int or not 0<=i<expected or i in seen or not isinstance(words,list) or len(words)!=16 or any(type(x) is not int or not 0<=x<=0xffffffff for x in words):raise ChildFailure('Invalid measured hit')
    seen.add(i)
+  if evidence:(evidence/'hits.json').write_text(json.dumps(result))
   self.metrics.gpu_complete(root.name,metadata['batch_id'],expected)
   if not result['hits']:return []
   await self.stage('proofs',[self.oracle,'work-finalize',work,hits,proofs],evidence)
-  result=json.loads((proofs/'proofs.json').read_text());return [((proofs/f'hit-{i}.proof.bin').read_bytes(),json.loads((proofs/f'hit-{i}-report.json').read_text())) for i in result['indices']]
+  result=json.loads((proofs/'proofs.json').read_text());ready=[]
+  if evidence:(evidence/'candidates').mkdir(mode=0o700)
+  for i in result['indices']:
+   proof=(proofs/f'hit-{i}.proof.bin').read_bytes();report=json.loads((proofs/f'hit-{i}-report.json').read_text())
+   if evidence:
+    (evidence/'candidates'/f'hit-{i}.proof.bin').write_bytes(proof)
+    (evidence/'candidates'/f'hit-{i}-report.json').write_text(json.dumps(report))
+   ready.append((proof,report))
+  return ready
  async def batch(self,raw,root):return await self.finish(await self.prepare(raw,root))
  def status(self,counts):emit('status',**counts.public(),performance=self.metrics.snapshot(),engine=self.service.describe() if self.service else None)
 async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_after_accepted=0):

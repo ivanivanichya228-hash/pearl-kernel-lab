@@ -29,3 +29,15 @@ class NoiseEvidenceTests(unittest.TestCase):
    with self.assertRaises(ValueError):g.validate_memcheck(json.dumps({**good,**changed})+'\nERROR SUMMARY: 0 errors',0,'noise-check')
  def test_noise_sanitizer_allowed_with_budget(self):
   self.assertEqual(g.validation_budget(2,0,1,60,'noise-check',True),0)
+
+class CompactEvidenceTests(unittest.TestCase):
+ def test_requires_new_path_and_clean_leaks(self):
+  import json
+  good={'phase':'compact_filter_correctness','passed':True,'official_vectors':195,'capacity_cases':8,'append_and_transcript_retention':True,'exact_target_passed':True,'empty_preserves_count':True}
+  suffix='\nERROR SUMMARY: 0 errors\nLEAK SUMMARY: 0 bytes leaked in 0 allocations\n'
+  g.validate_memcheck(json.dumps(good)+suffix,0,'compact-check')
+  for change in ({'capacity_cases':7},{'append_and_transcript_retention':False},{'exact_target_passed':False}):
+   with self.assertRaises(ValueError):g.validate_memcheck(json.dumps({**good,**change})+suffix,0,'compact-check')
+  for suffix_bad in ('\nERROR SUMMARY: 0 errors',suffix.replace('0 bytes','4 bytes'),suffix+'LEAK SUMMARY: 4 bytes leaked in 1 allocations'):
+   with self.assertRaises(ValueError):g.validate_memcheck(json.dumps(good)+suffix_bad,0,'compact-check')
+ def test_new_mode_budget_allowed(self):self.assertEqual(g.validation_budget(2,0,1,20,'compact-check',True),0)
