@@ -38,5 +38,6 @@ inline void write_mining_hits(const MiningWorkInfo&w,const std::vector<MiningHit
  for(std::size_t i=0;i<hits.size();++i){if(i)out<<',';out<<"{\"index\":"<<hits[i].index<<",\"transcript\":[";for(int j=0;j<16;++j){if(j)out<<',';out<<hits[i].transcript[j];}out<<"]}";}out<<"]}\n";out.close();if(!out)throw std::runtime_error("write hits output");
 }
 void mining_worker(const std::function<void()>&guard,int kernel_threads=256);
+void overlap_worker(const std::function<void()>&guard,int kernel_threads);
 void mine_batch(const std::string&path,const std::string&output,int kernel_threads=256);
 }

@@ -8,7 +8,8 @@ async def terminate(proc):
    with contextlib.suppress(ProcessLookupError):os.killpg(proc.pid,signal.SIGKILL)
    await proc.wait()
 class PersistentEngine:
- def __init__(self,argv,guard=None,evidence=None,timeout=45):
+ def __init__(self,argv,guard=None,evidence=None,timeout=45,expected_protocol=1):
+  self.expected_protocol=expected_protocol
   self.argv=list(map(str,argv));self.guard=guard;self.evidence=evidence;self.timeout=timeout;self.proc=None;self.seq=0;self.lock=asyncio.Lock();self.log=None;self.events=None;self.closed=False;self.generations=[];self.pid=None;self.starts=0;self.busy=False;self.shutdown_forced=False
  async def line(self,deadline):
   task=asyncio.create_task(self.proc.stdout.readline())
@@ -39,8 +40,8 @@ class PersistentEngine:
    for _ in range(8):
     record=await self.line(deadline)
     if record.get('phase')=='worker_ready':
-     if record.get('protocol')!=1 or record.get('pid')!=self.proc.pid:raise RuntimeError('Engine protocol/identity mismatch')
-     self.pid=self.proc.pid;return
+     if record.get('protocol')!=self.expected_protocol or record.get('pid')!=self.proc.pid:raise RuntimeError('Engine protocol/identity mismatch')
+     self.pid=self.proc.pid;self.ready_record=record;return
     if record.get('phase')!='device':raise RuntimeError('Unexpected engine startup response')
    raise RuntimeError('Engine startup did not finish')
   except BaseException:await self.close();raise

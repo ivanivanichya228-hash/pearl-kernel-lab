@@ -16,7 +16,7 @@ async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_a
     session.changed.clear()
     if session.raw is not None:break
     await session.changed.wait()
-   await slots.acquire();temporary=None;transferred=False;prep=None;changed=None
+   await slots.acquire();temporary=None;transferred=False;prep=None;changed=None;data=None
    try:
     if session.raw is None:continue
     raw=session.raw;generation=session.generation;job=session.book.current;session.changed.clear()
@@ -27,11 +27,13 @@ async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_a
      counts.stale+=1;prep.cancel();await asyncio.gather(prep,return_exceptions=True);continue
     data=await prep
     if generation!=session.generation:counts.stale+=1;continue
+    if getattr(backend,'transfer_overlap',False):await backend.enqueue(data)
     work=Prepared(temporary,raw,generation,job,data);await queue.put(work);transferred=True
    finally:
     if changed:changed.cancel();await asyncio.gather(changed,return_exceptions=True)
     if prep and not prep.done():prep.cancel();await asyncio.gather(prep,return_exceptions=True)
     if not transferred:
+     if data and data.get('ticket'):await backend.service.close()
      if temporary:temporary.cleanup()
      slots.release()
  producer_task=asyncio.create_task(producer());current=None;get_task=None
@@ -42,7 +44,7 @@ async def mining(session,backend,workdir,counts,max_batches,enable_submit,stop_a
    done,_=await asyncio.wait([get_task,producer_task],return_when=asyncio.FIRST_COMPLETED)
    if producer_task in done:await producer_task;raise RuntimeError('Preparation producer ended unexpectedly')
    current=await get_task;get_task=None
-   if current.generation!=session.generation:counts.stale+=1;await release(current);current=None;continue
+   if current.generation!=session.generation and not current.data.get('ticket'):counts.stale+=1;await release(current);current=None;continue
    # A job update does not tear down the persistent context: finish this request,
    # discard stale output, and keep the next CPU preparation running independently.
    proofs=await backend.finish(current.data,backend.service)

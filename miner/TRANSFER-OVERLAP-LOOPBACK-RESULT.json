@@ -1,0 +1,32 @@
+{
+  "queued_transfer_scheduler_enabled": true,
+  "completed_unconsumed_boundary_sequences": [
+    3
+  ],
+  "verified_candidate_proofs_retained": 8,
+  "GPU_noise_requested": true,
+  "pipeline_enabled": true,
+  "single_persistent_process_verified": true,
+  "RAM_workspace_cleaned": true,
+  "actual_CLI_entry_tested": true,
+  "full_wall_rate_accounting_checked": true,
+  "completed_fresh_candidate_groups": 8,
+  "loopback_pool_only": true,
+  "external_pool_contacted": false,
+  "GPU_executed": false,
+  "arithmetic_backend": "independent C++ CPU reference",
+  "official_verifier_checked_each_received_proof": true,
+  "fresh_unique_proof_hashes": 8,
+  "counts": {
+    "batches": 2,
+    "sent": 8,
+    "accepted": 6,
+    "rejected": 2,
+    "unknown": 0,
+    "stale": 0,
+    "reconnects": 0
+  },
+  "real_pool_share_accepted": false,
+  "GPU_live_worker_tested": false,
+  "temporary_work_cleaned": true
+}

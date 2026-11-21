@@ -40,6 +40,9 @@ void check_batch_pipeline(const std::string& path,const std::string& export_path
 #include "noise.cuh"
 #include "mapped_work.hpp"
 #include "worker_protocol.hpp"
+#include "request_inbox.hpp"
+#include "transfer_pool.cuh"
+#include <thread>
 namespace pearl_lab {
 namespace {
 template<class T>struct Reusable{
@@ -59,24 +62,27 @@ class MiningExecutor{
  Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,count,permutation;Reusable<CompactHit>packed;Stream stream;uint64_t generation=0;int threads;
  public:
  explicit MiningExecutor(int kernel_threads=256):threads(kernel_threads){if(threads!=256&&threads!=384)throw std::runtime_error("kernel threads");}
- uint64_t run(const std::string&path,const std::string&output){
+ uint64_t run(const std::string&path,const std::string&output,TransferSlot*input=nullptr,cudaEvent_t epoch=nullptr,const std::function<void(cudaEvent_t)>&overlap={}){
   const auto started=std::chrono::steady_clock::now();
   if(output.empty()||std::filesystem::exists(output))throw std::runtime_error("new hits output path required");
-  const MappedMiningWork w(path);MappingFence fence{stream.s};const auto&p=w.info.shape;constexpr int slab=8192;constexpr uint32_t capacity=4096;
+  std::unique_ptr<MappedMiningWork>mapped;if(!input)mapped=std::make_unique<MappedMiningWork>(path);
+  const MiningWorkInfo&info=input?input->info:mapped->info;const auto a_bytes=input?input->a_bytes:mapped->a_bytes,b_bytes=input?input->b_bytes:mapped->b_bytes;MappingFence fence{stream.s};const auto&p=info.shape;constexpr int slab=8192;constexpr uint32_t capacity=transfer_result_capacity;
   const std::size_t maxgroups=std::size_t(std::min(slab,p.m)/16)*(std::min(slab,p.n)/p.proof_n);
-  const std::size_t uniform_bytes=w.info.raw_input?std::size_t(std::max(p.m,p.n))*p.rank:0;
-  if(uniform_bytes>uniform.capacity||(w.info.raw_input&&std::size_t(p.k*2)>permutation.capacity)||w.a_bytes>a.capacity||w.b_bytes>b.capacity||maxgroups*16>transcripts.capacity||!count.p||packed.capacity<capacity){
+  const std::size_t uniform_bytes=info.raw_input?std::size_t(std::max(p.m,p.n))*p.rank:0;
+  if(uniform_bytes>uniform.capacity||(info.raw_input&&std::size_t(p.k*2)>permutation.capacity)||(!input&&(a_bytes>a.capacity||b_bytes>b.capacity))||maxgroups*16>transcripts.capacity||!count.p||packed.capacity<capacity){
    checked(cudaStreamSynchronize(stream.s));a.clear();b.clear();transcripts.clear();count.clear();uniform.clear();permutation.clear();packed.clear();
    std::size_t free=0,totalmem=0;checked(cudaMemGetInfo(&free,&totalmem));
-   if(w.a_bytes+w.b_bytes+maxgroups*64+capacity*sizeof(CompactHit)+uniform_bytes+std::size_t(p.k)*8+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
-   a.allocate(w.a_bytes);b.allocate(w.b_bytes);transcripts.allocate(maxgroups*16);count.allocate(1);packed.allocate(capacity);if(w.info.raw_input){uniform.allocate(uniform_bytes);permutation.allocate(p.k*2);}++generation;
+   if(a_bytes+b_bytes+maxgroups*64+capacity*sizeof(CompactHit)+uniform_bytes+std::size_t(p.k)*8+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
+   if(!input){a.allocate(a_bytes);b.allocate(b_bytes);}transcripts.allocate(maxgroups*16);count.allocate(1);packed.allocate(capacity);if(info.raw_input){uniform.allocate(uniform_bytes);permutation.allocate(p.k*2);}++generation;
   }
+  int8_t*device_a=input?input->device:a.p;int8_t*device_b=input?input->device+a_bytes:b.p;
   EventMarks marks;checked(cudaEventRecord(marks.e[0],stream.s));
-  checked(cudaMemcpyAsync(a.p,w.a,w.a_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaMemcpyAsync(b.p,w.bt,w.b_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaEventRecord(marks.e[1],stream.s));
-  if(w.info.raw_input){
+  if(input){if(input->path!=path||input->computing)throw std::runtime_error("staged input identity/reuse");input->computing=true;checked(cudaStreamWaitEvent(stream.s,input->end,0));}
+  else{checked(cudaMemcpyAsync(device_a,mapped->a,a_bytes,cudaMemcpyHostToDevice,stream.s));checked(cudaMemcpyAsync(device_b,mapped->bt,b_bytes,cudaMemcpyHostToDevice,stream.s));}checked(cudaEventRecord(marks.e[1],stream.s));
+  if(info.raw_input){
    checked(cudaMemsetAsync(count.p,0,4,stream.s));
-   NoiseKey ka{},kb{};std::copy(w.info.context.key,w.info.context.key+8,ka.key);std::copy(w.info.b_noise_key,w.info.b_noise_key+8,kb.key);ka.is_a=true;kb.is_a=false;
-   checked(launch_apply_noise(a.p,p.m,p.k,p.rank,ka,uniform.p,permutation.p,count.p,stream.s));checked(launch_apply_noise(b.p,p.n,p.k,p.rank,kb,uniform.p,permutation.p,count.p,stream.s));
+   NoiseKey ka{},kb{};std::copy(info.context.key,info.context.key+8,ka.key);std::copy(info.b_noise_key,info.b_noise_key+8,kb.key);ka.is_a=true;kb.is_a=false;
+   checked(launch_apply_noise(device_a,p.m,p.k,p.rank,ka,uniform.p,permutation.p,count.p,stream.s));checked(launch_apply_noise(device_b,p.n,p.k,p.rank,kb,uniform.p,permutation.p,count.p,stream.s));
    checked(cudaEventRecord(marks.e[2],stream.s));checked(cudaStreamSynchronize(stream.s));uint32_t error=0;checked(cudaMemcpy(&error,count.p,4,cudaMemcpyDeviceToHost));if(error)throw std::runtime_error("GPU raw/noisy range error");
   }else checked(cudaEventRecord(marks.e[2],stream.s));
   // One bounded append queue for the ENTIRE batch. A filter copies winning words
@@ -84,21 +90,41 @@ class MiningExecutor{
   checked(cudaMemsetAsync(count.p,0,4,stream.s));uint32_t slabs=0;
   for(int r=0;r<p.m;r+=slab){for(int c=0;c<p.n;c+=slab){
    Shape local{std::min(slab,p.m-r),std::min(slab,p.n-c),p.k,p.rank,p.proof_n};
-   checked(launch(a.p+std::size_t(r)*p.k,b.p+std::size_t(c)*p.k,transcripts.p,nullptr,local,threads,stream.s,64));
-   checked(launch_compact_filter(transcripts.p,uint32_t(local.groups()),w.info.context,packed.p,count.p,capacity,HitGeometry{uint32_t(r),uint32_t(c),uint32_t(local.n),uint32_t(p.n),uint32_t(p.proof_n)},stream.s));++slabs;
+   checked(launch(device_a+std::size_t(r)*p.k,device_b+std::size_t(c)*p.k,transcripts.p,nullptr,local,threads,stream.s,64));
+   checked(launch_compact_filter(transcripts.p,uint32_t(local.groups()),info.context,packed.p,count.p,capacity,HitGeometry{uint32_t(r),uint32_t(c),uint32_t(local.n),uint32_t(p.n),uint32_t(p.proof_n)},stream.s));++slabs;
   }}
-  checked(cudaEventRecord(marks.e[3],stream.s));uint32_t found=0;
-  checked(cudaMemcpyAsync(&found,count.p,4,cudaMemcpyDeviceToHost,stream.s));checked(cudaStreamSynchronize(stream.s));
+  checked(cudaEventRecord(marks.e[3],stream.s));if(overlap)overlap(marks.e[3]);uint32_t found=0;uint32_t*host_count=input?input->result_count():&found;
+  checked(cudaMemcpyAsync(host_count,count.p,4,cudaMemcpyDeviceToHost,stream.s));checked(cudaStreamSynchronize(stream.s));if(input)found=*host_count;
   if(found>capacity)throw std::runtime_error("compact hit queue overflow; no partial output");
-  std::vector<CompactHit>collected(found);if(found)checked(cudaMemcpyAsync(collected.data(),packed.p,found*sizeof(CompactHit),cudaMemcpyDeviceToHost,stream.s));
-  checked(cudaEventRecord(marks.e[4],stream.s));checked(cudaStreamSynchronize(stream.s));
+  std::vector<CompactHit>collected(found);if(found)checked(cudaMemcpyAsync(input?input->result_hits():collected.data(),packed.p,found*sizeof(CompactHit),cudaMemcpyDeviceToHost,stream.s));
+  checked(cudaEventRecord(marks.e[4],stream.s));checked(cudaStreamSynchronize(stream.s));if(input&&found)std::copy_n(input->result_hits(),found,collected.begin());
   std::sort(collected.begin(),collected.end(),[](const CompactHit&a,const CompactHit&b){return a.index<b.index;});
   std::vector<MiningHit>hits;hits.reserve(found);for(const auto&item:collected){if(item.index>=p.groups()||(!hits.empty()&&hits.back().index==item.index))throw std::runtime_error("compact global index/duplicate");MiningHit h{};h.index=item.index;std::copy(item.transcript,item.transcript+16,h.transcript);hits.push_back(h);}
-  write_mining_hits(w.info,hits,output,true);
+  write_mining_hits(info,hits,output,true);
+  if(input){float begin_ms=0,end_ms=0,compute_begin=0,compute_end=0;checked(cudaEventElapsedTime(&begin_ms,epoch,input->begin));checked(cudaEventElapsedTime(&end_ms,epoch,input->end));checked(cudaEventElapsedTime(&compute_begin,epoch,marks.e[2]));checked(cudaEventElapsedTime(&compute_end,epoch,marks.e[3]));
+   std::cout<<"{\"phase\":\"transfer_stage\",\"seq\":"<<input->seq<<",\"pinned\":true,\"slot\":"<<(input->seq%2)<<",\"slot_generation\":"<<input->generation<<",\"raw_bytes\":"<<a_bytes+b_bytes<<",\"CPU_copy_ms\":"<<input->CPU_copy_ms<<",\"copy_begin_ms\":"<<begin_ms<<",\"copy_end_ms\":"<<end_ms<<",\"compute_begin_ms\":"<<compute_begin<<",\"compute_end_ms\":"<<compute_end<<"}\n";input->computing=false;
+  }
+  float transfer_ms=marks.elapsed(0,1);if(input)checked(cudaEventElapsedTime(&transfer_ms,input->begin,input->end));
   const auto wall_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
-  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"kernel_threads\":"<<threads<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(w.info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<marks.elapsed(0,1)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
+  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"kernel_threads\":"<<threads<<",\"pinned_transfer_overlap\":"<<(input?"true":"false")<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<transfer_ms<<",\"input_ready_wait_milliseconds\":"<<(input?marks.elapsed(0,1):0)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
  }
 };
+}
+void overlap_worker(const std::function<void()>&guard,int kernel_threads){
+ TransferPool pool;MiningExecutor engine(kernel_threads);RequestInbox inbox;std::optional<WorkerRequest>next;int next_slot=0;uint64_t completed=0;
+ std::cout<<"{\"phase\":\"worker_ready\",\"protocol\":2,\"backend\":\"GPU\",\"transfer_slots\":2,\"pid\":"<<getpid()<<"}\n"<<std::flush;
+ while(true){WorkerRequest request;int slot;
+  if(next){request=std::move(*next);next.reset();slot=next_slot;}
+  else{request=*inbox.take(true);if(request.quit)return;guard();slot=int(request.seq%2);pool.prepare(slot,request.seq,request.input);std::cout<<"{\"phase\":\"transfer_queued\",\"seq\":"<<request.seq<<",\"prefetch\":false}\n"<<std::flush;}
+  if(request.quit)return;guard();
+  auto generation=engine.run(request.input,request.output,&pool.slots[slot],pool.epoch,[&](cudaEvent_t done){
+   while(true){auto status=cudaEventQuery(done);if(status==cudaSuccess)break;if(status!=cudaErrorNotReady)checked(status);else{auto last=cudaGetLastError();if(last!=cudaSuccess&&last!=cudaErrorNotReady)checked(last);}
+    if(!next){auto pending=inbox.take(false);if(pending){next=std::move(*pending);if(!next->quit){guard();next_slot=1-slot;pool.prepare(next_slot,next->seq,next->input);std::cout<<"{\"phase\":\"transfer_queued\",\"seq\":"<<next->seq<<",\"prefetch\":true}\n"<<std::flush;}}}
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+   }
+  });guard();++completed;
+  std::cout<<"{\"phase\":\"worker_done\",\"seq\":"<<request.seq<<",\"requests_completed\":"<<completed<<",\"resource_generation\":"<<generation<<",\"pid\":"<<getpid()<<"}\n"<<std::flush;
+ }
 }
 void mine_batch(const std::string&path,const std::string&output,int kernel_threads){MiningExecutor engine(kernel_threads);engine.run(path,output);}
 void mining_worker(const std::function<void()>&guard,int kernel_threads){MiningExecutor engine(kernel_threads);serve_mining_worker([&](const std::string&i,const std::string&o){guard();auto result=engine.run(i,o);guard();return result;},"GPU");}

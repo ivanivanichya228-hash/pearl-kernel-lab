@@ -1,5 +1,5 @@
 {
-  "version": "0.13.0",
+  "version": "0.14.0",
   "date": "2026-11-21",
   "CUDA_compiler": "13.0.88",
   "targets": [
@@ -314,9 +314,9 @@
   "five_step_progress": {
     "1_persistent_GPU_process": "previous e3c4af5 real Mint4090 run verified 82 requests, one PID, generation1",
     "2_RAM_and_overlap": "previous real run fresh 10.895839M groups/s; zero shares; descriptive own-window comparison only",
-    "3_GPU_preparation": "new actual192x256/384-thread GEMM candidate implemented; GPU noise/root preparation remain as before, raw/roots still CPU",
-    "4_new_build": "compiled SM86/89 debug/nondebug proof8/16, zero spills; CPU checkpoint/ownership model and59 Python tests passed",
-    "5_new_rig_test": "pending KERNEL384.md: short rejection comparison before optional live420"
+    "3_GPU_preparation": "pinned two-slot input transport and prefetch implemented; GPU kernel384 unchanged; raw/RNG/roots remain CPU",
+    "4_new_build": "CUDA SM86/89 build;68 Python checks, native request framing/shutdown, queued CLI official proof integration passed",
+    "5_new_rig_test": "pending single targeted transfer gate and short matched comparison TRANSFER-OVERLAP.md before optional live420"
   },
   "persistent_pipeline": {
     "task": "PIPELINE-REBUILD.md",
@@ -705,5 +705,43 @@
     },
     "default_changed": false,
     "GPU_executed": false
+  },
+  "transfer_overlap": {
+    "task": "TRANSFER-OVERLAP.md",
+    "CPU_build_evidence": {
+      "GPU_executed": false,
+      "GPU_speedup_measured": false,
+      "CUDA_build_succeeded": true,
+      "CUDA_compiler": "13.0.88",
+      "architectures": [
+        "sm_86",
+        "sm_89"
+      ],
+      "binary_sha256": "c831909195de36d70265462574e38523fd4d7410c6d862795a11b9cab8bce06c",
+      "Python_tests_passed": 68,
+      "native_request_parser_passed": true,
+      "native_idle_reader_joined_with_open_stdin": true,
+      "queued_two_inflight_and_overflow_rejection_passed": true,
+      "unawaited_prefetch_deadline_passed": true,
+      "cancel_reaps_before_workspace_cleanup_passed": true,
+      "prefetched_stale_workspace_lifetime_passed": true,
+      "control_CLI_integration_passed": true,
+      "queued_CLI_official_proofs_retained": 8,
+      "CPU_only_comparison_driver_all_four_legs_tested": true,
+      "CPU_mock_never_authorizes_live": true,
+      "GEMM_noise_filter_verifier_unchanged": true,
+      "slots": 2,
+      "protocol": 2,
+      "default_enabled": false,
+      "transfer_CPU_fixtures": {
+        "cases": 4,
+        "all_hits": 1034,
+        "official_sampled_proofs": 14,
+        "large_to_small_slot_reuse": true
+      }
+    },
+    "default_enabled": false,
+    "GPU_executed": false,
+    "speedup_measured": false
   }
 }

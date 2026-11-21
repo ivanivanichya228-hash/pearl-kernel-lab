@@ -2,6 +2,7 @@
 #include "mapped_work.hpp"
 #include "noise.hpp"
 #include "worker_protocol.hpp"
+#include "request_inbox.hpp"
 #include <algorithm>
 #include <iostream>
 void execute(const std::string&input,const std::string&output){
@@ -14,6 +15,10 @@ void execute(const std::string&input,const std::string&output){
  pearl_lab::write_mining_hits(w,hits,output,false);
 }
 int main(int argc,char**argv){try{
+ if(argc==2&&std::string(argv[1])=="--queued-serve"){
+  pearl_lab::RequestInbox inbox;std::cout<<"{\"phase\":\"worker_ready\",\"protocol\":2,\"backend\":\"CPU-reference\",\"transfer_slots\":2,\"pid\":"<<getpid()<<"}\n"<<std::flush;
+  while(true){auto request=*inbox.take(true);if(request.quit)return 0;execute(request.input,request.output);std::cout<<"{\"phase\":\"worker_done\",\"seq\":"<<request.seq<<",\"requests_completed\":"<<request.seq<<",\"resource_generation\":0,\"pid\":"<<getpid()<<"}\n"<<std::flush;}
+ }
  if(argc==2&&std::string(argv[1])=="--serve")return pearl_lab::serve_mining_worker([](const std::string&i,const std::string&o){execute(i,o);return 0;},"CPU-reference");
  if(argc!=3)throw std::runtime_error("work input/output required");
  execute(argv[1],argv[2]);

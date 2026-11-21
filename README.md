@@ -1,3 +1,5 @@
+Current revision **0.14.0**: [TRANSFER-OVERLAP.md](TRANSFER-OVERLAP.md). Explicit pinned two-slot transfer path, unchanged kernel384, bounded queued lifecycle. CUDA build and68 CPU checks pass; GPU execution pending. One short matched transport comparison gates any long live test. Default OFF.
+
 Current revision **0.13.0**: [KERNEL384.md](KERNEL384.md). Actual192x256/384-thread GEMM candidate;166/167 registers, zero spills in SM86/89 build. CPU model passed. GPU performance untested. Default remains256; one short matched rejection comparison before any long live window.
 
 Current revision **0.12.0**: [COMPACT-TRANSFER.md](COMPACT-TRANSFER.md). One compact GPU hit queue instead of per-slab host readbacks; native phase timings and persistent candidate evidence. CUDA compiled and CPU checks passed; new GPU path untested here. Use only this single current task.
