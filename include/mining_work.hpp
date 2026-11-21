@@ -37,7 +37,7 @@ inline void write_mining_hits(const MiningWorkInfo&w,const std::vector<MiningHit
  out<<"{\"job_fingerprint\":\""<<w.fingerprint<<"\",\"batch_id\":\""<<w.batch_id<<"\",\"GPU_executed\":"<<(gpu?"true":"false")<<",\"raw_noise_input\":"<<(w.raw_input?"true":"false")<<",\"noise_backend\":\""<<(w.raw_input?(gpu?"GPU":"CPU-reference"):"CPU-prepared")<<"\",\"hits\":[";
  for(std::size_t i=0;i<hits.size();++i){if(i)out<<',';out<<"{\"index\":"<<hits[i].index<<",\"transcript\":[";for(int j=0;j<16;++j){if(j)out<<',';out<<hits[i].transcript[j];}out<<"]}";}out<<"]}\n";out.close();if(!out)throw std::runtime_error("write hits output");
 }
-void mining_worker(const std::function<void()>&guard,int kernel_threads=256,bool matrix_loads=false,bool two_cta=false,bool triple_stage=false);
+void mining_worker(const std::function<void()>&guard,int kernel_threads=256,bool matrix_loads=false,bool two_cta=false,bool triple_stage=false,bool fused_stage=false);
 void overlap_worker(const std::function<void()>&guard,int kernel_threads);
-void mine_batch(const std::string&path,const std::string&output,int kernel_threads=256,bool matrix_loads=false,bool two_cta=false,bool triple_stage=false);
+void mine_batch(const std::string&path,const std::string&output,int kernel_threads=256,bool matrix_loads=false,bool two_cta=false,bool triple_stage=false,bool fused_stage=false);
 }

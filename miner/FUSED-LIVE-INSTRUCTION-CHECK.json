@@ -1,0 +1,9 @@
+{
+  "SM89_fused_instruction_bytes_identical_to_GPU_tested_binary": true,
+  "section_key": "proof_n; ignore compiler anonymous-namespace path salt",
+  "PN_text_sha256": {
+    "8": "e350523ae0c4c76cc24f1e264a8b94f1824741b6ce99bc0698f280ac7810d80e",
+    "16": "8769c3b1e4aa60bf4d4b1902b613006b9e129313a3e80f3f2360d99756fef9c1"
+  },
+  "reference_binary_sha256": "e86e44b800136487afbf5b19aa83f5de6e56b4497b75217d5eb60a15c588e242"
+}

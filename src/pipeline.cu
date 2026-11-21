@@ -59,21 +59,21 @@ struct EventMarks{
  float elapsed(int a,int b){float ms=0;checked(cudaEventElapsedTime(&ms,e[a],e[b]));return ms;}
 };
 class MiningExecutor{
- Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,count,permutation;Reusable<CompactHit>packed;Stream stream;uint64_t generation=0;int threads;bool matrix_loads;bool two_cta;bool triple_stage;
+ Reusable<int8_t>a,b,uniform;Reusable<uint32_t>transcripts,count,permutation;Reusable<CompactHit>packed;Stream stream;uint64_t generation=0;int threads;bool matrix_loads;bool two_cta;bool triple_stage;bool fused_stage;
  public:
- explicit MiningExecutor(int kernel_threads=256,bool loads=false,bool compact=false,bool triple=false):threads(kernel_threads),matrix_loads(loads),two_cta(compact),triple_stage(triple){if((threads!=256&&threads!=384)||(loads&&threads!=384)||(compact&&(threads!=256||loads))||(triple&&(threads!=384||loads||compact)))throw std::runtime_error("kernel threads/matrix loads");}
+ explicit MiningExecutor(int kernel_threads=256,bool loads=false,bool compact=false,bool triple=false,bool fused=false):threads(kernel_threads),matrix_loads(loads),two_cta(compact),triple_stage(triple),fused_stage(fused){if(fused&&(!triple||kernel_threads!=384||loads||compact))throw std::runtime_error("fused needs triple384 exclusively");if((threads!=256&&threads!=384)||(loads&&threads!=384)||(compact&&(threads!=256||loads))||(triple&&(threads!=384||loads||compact)))throw std::runtime_error("kernel threads/matrix loads");}
  uint64_t run(const std::string&path,const std::string&output,TransferSlot*input=nullptr,cudaEvent_t epoch=nullptr,const std::function<void(cudaEvent_t)>&overlap={}){
   const auto started=std::chrono::steady_clock::now();
   if(output.empty()||std::filesystem::exists(output))throw std::runtime_error("new hits output path required");
   std::unique_ptr<MappedMiningWork>mapped;if(!input)mapped=std::make_unique<MappedMiningWork>(path);
   const MiningWorkInfo&info=input?input->info:mapped->info;const auto a_bytes=input?input->a_bytes:mapped->a_bytes,b_bytes=input?input->b_bytes:mapped->b_bytes;MappingFence fence{stream.s};const auto&p=info.shape;constexpr int slab=8192;constexpr uint32_t capacity=transfer_result_capacity;
-  const std::size_t maxgroups=std::size_t(std::min(slab,p.m)/16)*(std::min(slab,p.n)/p.proof_n);
+  const std::size_t maxgroups=fused_stage?0:std::size_t(std::min(slab,p.m)/16)*(std::min(slab,p.n)/p.proof_n);
   const std::size_t uniform_bytes=info.raw_input?std::size_t(std::max(p.m,p.n))*p.rank:0;
   if(uniform_bytes>uniform.capacity||(info.raw_input&&std::size_t(p.k*2)>permutation.capacity)||(!input&&(a_bytes>a.capacity||b_bytes>b.capacity))||maxgroups*16>transcripts.capacity||!count.p||packed.capacity<capacity){
    checked(cudaStreamSynchronize(stream.s));a.clear();b.clear();transcripts.clear();count.clear();uniform.clear();permutation.clear();packed.clear();
    std::size_t free=0,totalmem=0;checked(cudaMemGetInfo(&free,&totalmem));
    if(a_bytes+b_bytes+maxgroups*64+capacity*sizeof(CompactHit)+uniform_bytes+std::size_t(p.k)*8+256ull*1024*1024>free)throw std::runtime_error("insufficient VRAM for explicit profile");
-   if(!input){a.allocate(a_bytes);b.allocate(b_bytes);}transcripts.allocate(maxgroups*16);count.allocate(1);packed.allocate(capacity);if(info.raw_input){uniform.allocate(uniform_bytes);permutation.allocate(p.k*2);}++generation;
+   if(!input){a.allocate(a_bytes);b.allocate(b_bytes);}if(maxgroups)transcripts.allocate(maxgroups*16);count.allocate(1);packed.allocate(capacity);if(info.raw_input){uniform.allocate(uniform_bytes);permutation.allocate(p.k*2);}++generation;
   }
   int8_t*device_a=input?input->device:a.p;int8_t*device_b=input?input->device+a_bytes:b.p;
   EventMarks marks;checked(cudaEventRecord(marks.e[0],stream.s));
@@ -90,8 +90,12 @@ class MiningExecutor{
   checked(cudaMemsetAsync(count.p,0,4,stream.s));uint32_t slabs=0;
   for(int r=0;r<p.m;r+=slab){for(int c=0;c<p.n;c+=slab){
    Shape local{std::min(slab,p.m-r),std::min(slab,p.n-c),p.k,p.rank,p.proof_n};
-   checked(launch(device_a+std::size_t(r)*p.k,device_b+std::size_t(c)*p.k,transcripts.p,nullptr,local,threads,stream.s,64,matrix_loads,two_cta,triple_stage));
-   checked(launch_compact_filter(transcripts.p,uint32_t(local.groups()),info.context,packed.p,count.p,capacity,HitGeometry{uint32_t(r),uint32_t(c),uint32_t(local.n),uint32_t(p.n),uint32_t(p.proof_n)},stream.s));++slabs;
+   HitGeometry geometry{uint32_t(r),uint32_t(c),uint32_t(local.n),uint32_t(p.n),uint32_t(p.proof_n)};
+   if(fused_stage)checked(launch_fused(device_a+std::size_t(r)*p.k,device_b+std::size_t(c)*p.k,local,info.context,packed.p,count.p,capacity,geometry,stream.s));
+   else{
+    checked(launch(device_a+std::size_t(r)*p.k,device_b+std::size_t(c)*p.k,transcripts.p,nullptr,local,threads,stream.s,64,matrix_loads,two_cta,triple_stage));
+    checked(launch_compact_filter(transcripts.p,uint32_t(local.groups()),info.context,packed.p,count.p,capacity,geometry,stream.s));
+   }++slabs;
   }}
   checked(cudaEventRecord(marks.e[3],stream.s));if(overlap)overlap(marks.e[3]);uint32_t found=0;uint32_t*host_count=input?input->result_count():&found;
   checked(cudaMemcpyAsync(host_count,count.p,4,cudaMemcpyDeviceToHost,stream.s));checked(cudaStreamSynchronize(stream.s));if(input)found=*host_count;
@@ -106,7 +110,7 @@ class MiningExecutor{
   }
   float transfer_ms=marks.elapsed(0,1);if(input)checked(cudaEventElapsedTime(&transfer_ms,input->begin,input->end));
   const auto wall_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
-  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"kernel_threads\":"<<threads<<",\"triple_stage\":"<<(triple_stage?"true":"false")<<",\"pipeline_stages\":"<<((triple_stage&&p.proof_n==16)?3:2)<<",\"two_cta\":"<<(two_cta?"true":"false")<<",\"matrix_loads\":"<<(matrix_loads?"true":"false")<<",\"pinned_transfer_overlap\":"<<(input?"true":"false")<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<transfer_ms<<",\"input_ready_wait_milliseconds\":"<<(input?marks.elapsed(0,1):0)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
+  std::cout<<"{\"phase\":\"mining_batch\",\"groups\":"<<p.groups()<<",\"kernel_threads\":"<<threads<<",\"triple_stage\":"<<(triple_stage?"true":"false")<<",\"fused_stage\":"<<(fused_stage?"true":"false")<<",\"global_transcript_materialized\":"<<(fused_stage?"false":"true")<<",\"pipeline_stages\":"<<((triple_stage&&p.proof_n==16)?3:2)<<",\"two_cta\":"<<(two_cta?"true":"false")<<",\"matrix_loads\":"<<(matrix_loads?"true":"false")<<",\"pinned_transfer_overlap\":"<<(input?"true":"false")<<",\"hits\":"<<hits.size()<<",\"compact_hit_collection\":true,\"slabs\":"<<slabs<<",\"result_count_readbacks\":1,\"GPU_noise_applied\":"<<(info.raw_input?"true":"false")<<",\"GPU_noise_milliseconds\":"<<marks.elapsed(1,2)<<",\"H2D_phase_milliseconds\":"<<transfer_ms<<",\"input_ready_wait_milliseconds\":"<<(input?marks.elapsed(0,1):0)<<",\"compute_filter_phase_milliseconds\":"<<marks.elapsed(2,3)<<",\"result_copy_phase_milliseconds\":"<<marks.elapsed(3,4)<<",\"native_batch_wall_milliseconds\":"<<wall_ms<<",\"target_modified\":false}\n";return generation;
  }
 };
 }
@@ -126,6 +130,6 @@ void overlap_worker(const std::function<void()>&guard,int kernel_threads){
   std::cout<<"{\"phase\":\"worker_done\",\"seq\":"<<request.seq<<",\"requests_completed\":"<<completed<<",\"resource_generation\":"<<generation<<",\"pid\":"<<getpid()<<"}\n"<<std::flush;
  }
 }
-void mine_batch(const std::string&path,const std::string&output,int kernel_threads,bool matrix_loads,bool two_cta,bool triple_stage){MiningExecutor engine(kernel_threads,matrix_loads,two_cta,triple_stage);engine.run(path,output);}
-void mining_worker(const std::function<void()>&guard,int kernel_threads,bool matrix_loads,bool two_cta,bool triple_stage){MiningExecutor engine(kernel_threads,matrix_loads,two_cta,triple_stage);serve_mining_worker([&](const std::string&i,const std::string&o){guard();auto result=engine.run(i,o);guard();return result;},"GPU");}
+void mine_batch(const std::string&path,const std::string&output,int kernel_threads,bool matrix_loads,bool two_cta,bool triple_stage,bool fused_stage){MiningExecutor engine(kernel_threads,matrix_loads,two_cta,triple_stage,fused_stage);engine.run(path,output);}
+void mining_worker(const std::function<void()>&guard,int kernel_threads,bool matrix_loads,bool two_cta,bool triple_stage,bool fused_stage){MiningExecutor engine(kernel_threads,matrix_loads,two_cta,triple_stage,fused_stage);serve_mining_worker([&](const std::string&i,const std::string&o){guard();auto result=engine.run(i,o);guard();return result;},"GPU");}
 }

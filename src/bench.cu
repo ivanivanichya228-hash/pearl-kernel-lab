@@ -294,17 +294,18 @@ void diagnose384(bool counters) {
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false,matrix_loads=false,two_cta=false,triple_stage=false;int paused_pid=0;uint64_t paused_ticks=0;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin",pipeline_fixture,pipeline_export,work_input,work_output,noise_reference_path;
+    bool allow=false,concurrent=false,matrix_loads=false,two_cta=false,triple_stage=false,fused_stage=false;int paused_pid=0;uint64_t paused_ticks=0;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin",pipeline_fixture,pipeline_export,work_input,work_output,noise_reference_path;
     Shape shape{2048,6144,4096,128,16};ValidationPlan plan;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
         std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|fused-check|fused-compare|occupancy-check|occupancy-compare|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters|two-cta-check|two-cta-compare|triple-check|triple-compare] [--device N]\n"
           <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
-          <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads] [--two-cta] [--triple-stage]\n"
+          <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads] [--two-cta] [--triple-stage] [--fused-stage]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
       }
+      if(s=="--fused-stage"){fused_stage=true;continue;}
       if(s=="--triple-stage"){triple_stage=true;continue;}
       if(s=="--two-cta"){two_cta=true;continue;}
       if(s=="--matrix-loads"){matrix_loads=true;continue;}
@@ -343,6 +344,7 @@ int main(int argc,char**argv){
     if((mode=="occupancy-check"||mode=="occupancy-compare")&&(!triple_stage||candidate!=256||stage_k!=64))throw std::runtime_error("occupancy mode requires --triple-stage --candidate256 --stage-k64");
     if(triple_stage&&candidate==256&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="fused-check"&&mode!="fused-compare")throw std::runtime_error("lane-triple256 is validation-only until GPU correctness and performance pass");
     if((mode=="fused-check"||mode=="fused-compare")&&(!triple_stage||candidate!=384||stage_k!=64||matrix_loads||two_cta))throw std::runtime_error("fused mode needs original384/stage64/triple");
+    if(fused_stage&&(!triple_stage||candidate!=384||matrix_loads||two_cta||stage_k!=64||(mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("fused-stage requires triple384 worker/mine-batch exclusively");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
@@ -423,8 +425,8 @@ int main(int argc,char**argv){
     if(mode=="noise-check"){check_gpu_noise(work_input,noise_reference_path);return 0;}
     if(mode=="overlap-worker"){overlap_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during overlap worker");},candidate);return 0;}
     if(mode=="worker"){if(miner&&(!paused_pid||!paused_ticks))throw std::runtime_error("persistent worker requires paused miner identity");
-      mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");},candidate,matrix_loads,two_cta,triple_stage);return 0;}
-    if(mode=="mine-batch"){mine_batch(work_input,work_output,candidate,matrix_loads,two_cta,triple_stage);return 0;}
+      mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");},candidate,matrix_loads,two_cta,triple_stage,fused_stage);return 0;}
+    if(mode=="mine-batch"){mine_batch(work_input,work_output,candidate,matrix_loads,two_cta,triple_stage,fused_stage);return 0;}
     if(mode=="pipeline-check"){check_jackpot_filter(hash_vectors);check_batch_pipeline(pipeline_fixture,pipeline_export);return 0;}
     if(mode=="filter-check"){check_jackpot_filter(hash_vectors);return 0;}
     resources(shape.proof_n);if(mode=="info")return 0;

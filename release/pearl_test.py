@@ -7,12 +7,12 @@ from types import SimpleNamespace
 ROOT=Path(__file__).resolve().parent
 # Installed as package/pearl-test; imported from release/ in source tests.
 if ROOT.name=='release':ROOT=ROOT.parent
-VERSION='0.1.0-test'
+VERSION='0.2.0-fused'
 GPU='GPU-14cc341d-41f4-a977-1a1d-12785f4079da'
 
 def verify_bundle(root=ROOT):
  manifest=json.loads((root/'manifest.json').read_text())
- if manifest.get('version')!=VERSION or manifest.get('kernel')!='triple384':raise ValueError('Неизвестная сборка')
+ if manifest.get('version')!=VERSION or manifest.get('kernel')!='fused-triple384':raise ValueError('Неизвестная сборка')
  for name,digest in manifest['files'].items():
   rel=Path(name)
   if rel.is_absolute() or '..' in rel.parts:raise ValueError('Некорректный путь манифеста')
@@ -22,7 +22,7 @@ def verify_bundle(root=ROOT):
 
 def loader_check(root=ROOT):
  engine=subprocess.run([str(root/'bin/pearl-engine'),'--help'],capture_output=True,text=True,check=True,timeout=5)
- if '--triple-stage' not in engine.stdout:raise ValueError('Вычислительный бинарник не поддерживает triple384')
+ if '--triple-stage' not in engine.stdout or '--fused-stage' not in engine.stdout:raise ValueError('Вычислительный бинарник не поддерживает triple384')
  oracle=subprocess.run([str(root/'bin/pearl-protocol-oracle')],capture_output=True,text=True,timeout=5)
  if oracle.returncode!=1 or 'usage:' not in oracle.stderr.lower():raise ValueError('Проверяющий бинарник не загрузился')
 
@@ -117,7 +117,7 @@ async def run_pilot(args,config):
   line=format_status(event,row)
   if line:print(line,flush=True)
  miner.emit=emit
- options=SimpleNamespace(config=runtime,pipeline=True,gpu_noise=True,kernel_threads=384,triple_stage=True,two_cta=False,matrix_loads=False,transfer_overlap=False,oracle=ROOT/'bin/pearl-protocol-oracle',engine=ROOT/'bin/pearl-engine',mock_cpu=False,allow_live=True,enable_submit=True,gpu=GPU,expected_power_limit_w=Decimal(310),paused_pid=pid,paused_start_ticks=ticks,sanitizer=False,duration=args.duration,extended_test=True,measure_stability=True,stop_after_accepted=0,max_batches=0,ram_dir=args.ram_dir,workdir=work,evidence=evidence)
+ options=SimpleNamespace(config=runtime,pipeline=True,gpu_noise=True,kernel_threads=384,triple_stage=True,fused_stage=True,two_cta=False,matrix_loads=False,transfer_overlap=False,oracle=ROOT/'bin/pearl-protocol-oracle',engine=ROOT/'bin/pearl-engine',mock_cpu=False,allow_live=True,enable_submit=True,gpu=GPU,expected_power_limit_w=Decimal(310),paused_pid=pid,paused_start_ticks=ticks,sanitizer=False,duration=args.duration,extended_test=True,measure_stability=True,stop_after_accepted=0,max_batches=0,ram_dir=args.ram_dir,workdir=work,evidence=evidence)
  async def monitor():
   while True:
    # Remaining duration is enforced by the miner; retain a20s recovery margin.
@@ -139,14 +139,14 @@ async def run_pilot(args,config):
   print('Процесс теста завершён; восстановление SRBMiner проверяет внешний контроллер.',flush=True)
 
 def main():
- p=argparse.ArgumentParser(description='Pearl Test Miner / triple384 / ограниченный тест Mint4090')
+ p=argparse.ArgumentParser(description='Pearl Test Miner / fused-triple384 / ограниченный тест Mint4090')
  sub=p.add_subparsers(dest='command',required=True)
  sub.add_parser('version')
  v=sub.add_parser('verify');v.add_argument('--offline',action='store_true')
  c=sub.add_parser('configure');c.add_argument('--import-config',type=Path);c.add_argument('--config',type=Path,default=ROOT/'config.json')
  r=sub.add_parser('run');r.add_argument('--config',type=Path,default=ROOT/'config.json');r.add_argument('--session',type=Path,required=True);r.add_argument('--state',type=Path,required=True);r.add_argument('--ram-dir',type=Path,required=True);r.add_argument('--duration',type=int,default=420)
  args=p.parse_args()
- if args.command=='version':print('Pearl Test Miner '+VERSION+' / triple384 / developer fee0%');return
+ if args.command=='version':print('Pearl Test Miner '+VERSION+' / fused-triple384 / developer fee0%');return
  manifest=verify_bundle()
  if args.command=='verify':
   loader_check()
