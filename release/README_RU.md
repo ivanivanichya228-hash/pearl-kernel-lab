@@ -1,51 +1,50 @@
-# Pearl Test Miner0.4.0-singlepass-transcript
+# Pearl Test Miner0.5.0-fixed-shape
 
-Готовый тестовый клиент для одной Mint RTX4090. Изменено CUDA-ядро, а не guards
-или подготовка CPU. Преимущество над SRBMiner и новый GPU-прирост пока не измерены.
-Комиссия разработчика0%, комиссия пула своя.
+Готовый ограниченный клиент для Mint RTX4090. Изменён CUDA compute-путь:
+K4096/rank256/proof16 известны компилятору; полные192x256плитки не проверяют
+каждую16-байтную загрузку на границы. Шаг4096 — константа, не runtime multiply.
+Край обрабатывает0.4.0, остальные формы полностью возвращаются к старому пути.
+Для8192slab —8064строки нового ядра и128строк старого. Сохраняются все группы,
+MMA/prefix/transcript/noise/hash/target/proofs. Скорость на GPU ещё не измерена;
+победа над SRBMiner не заявлена. Комиссия разработчика0%, комиссия пула своя.
 
-Оптимизация при k==16*rank: каждый из16слотов transcript пишется один раз,
-поэтому удалены начальное обнуление, чтение/rotation старого значения.
-Остальные формы используют прежний fused kernel. MMA, cp.async, размеры tile,
-семантика commitments/noise/target/proof не менялись. Полный профильk4096/rank256
-попадает в новый путь. CPU-производитель и оригинальный pinned checker из0.3.0.
-Старое fused-ядро включено в тот же ELF как контроль.
+Внутри новые engine/Python-клиент, прежние producer/checker/profile,12готовых
+fixtures. Нужны Linuxx86_64,Python>=3.10,glibc>=2.38,driver>=580;
+Rust/CUDA/NumPy на риг не устанавливаются. GPU UUID
+GPU-14cc341d-41f4-a977-1a1d-12785f4079da,PL310 и остальные настройки прежние.
+Программа не меняет напряжения/частоты/PL/вентиляторы/службы.
 
-После импорта приватного конфига и до паузы:
+До паузы, новый каталог, без перезаписей:
 
     ./pearl-test version
     ./pearl-test verify
     ./pearl-test configure --import-config /EXISTING_PRIVATE/config.json
 
-Новый каталог, никаких перезаписей. Все host/port/wallet/worker сохраняются,
-config0600. Нужны Linuxx86_64,Python>=3.10,glibc>=2.38,driver>=580;
-Rust/Toolkit/NumPy на риге не требуются. GPU UUID
-GPU-14cc341d-41f4-a977-1a1d-12785f4079da,PL310,прочие настройки прежние.
-Программа не меняет напряжения, частоты, PL, вентиляторы или службы.
+Импорт сохраняет host/port/wallet/worker,новый config0600.
+Запуск только существующим root-контроллером; клиент UID/GID1000,
+capabilities0,NoNewPrivileges=yes,привязанный root-receipt,правильная cgroup,
+watchdog доSIGSTOP,all-thread-T/idle/unique-compute.
 
-Запуск только прежним проверенным внешним root-контроллером; клиент UID/GID1000,
-capabilities0,NoNewPrivileges=yes. Нужны действительный root-receipt в правильной
-cgroup, независимый watchdog до SIGSTOP, all-threadsT/idle/unique-compute.
-
-    ./pearl-test run --config /NEW_PACKAGE/config.json \
-      --session /run/pearl-test-sessions/ID/session.json \
+    ./pearl-test run --config /NEW_PACKAGE/config.json \\
+      --session /run/pearl-test-sessions/ID/session.json \\
       --state /NEW_PRIVATE/pilot-run --ram-dir /PRIVATE_TMPFS --duration 420
 
-Внутри команды сначала автоматически выполняются10GPU fixtures и одно короткое
-A/B/B/A: именно original-fused384 против singlepass-fused384 на одном8192профиле,
-без сравнения со старым separate-filter. Точные transcripts, смешанный target,
-queue capacity0/1/all, proof8/16, partial tiles и fallback обязательны.
-Затем проверяются исходные4времени: отношение>1.03 и обе B быстрее обеих A.
-Только после успеха gate начинается420с полного майнинга. Иначе выход/восстановление
-без длинного сеанса. Gate timeout45с; вся пауза<=600с, существующий контроллер
-cgroup555с/watchdog590с. После gate повторно проверяется запас времени сессии.
+Автоматически внутри ОДНОЙ команды:12fixture GPU checks,затем один короткий
+A/B/B/A(1с/.25сwarmup). A — singlepass-fused0.4.0, B — fixed-shape0.5.0.
+Исходный fused0.3.0 не используется как контроль. Клиент сам требует точных
+transcripts/mixedtarget/capacity0/1/all и ratio>1.03,max(B)<min(A).
+При отсутствии выигрыша/ошибке длинный live не начинается. Тайм-аут gate45с.
+При успехе проверяется остаток root-receipt и идёт один420сlive-сеанс.
+Порог3% не понижен,1.818% старого0.4.0 не считается новым результатом.
 
-Gate и live-клиент находятся в одной cgroup; отмена дожидается child/reap.
-Контроллер завершает всю cgroup ДОSIGCONT и строго проверяет возврат того же SRB,
-свежие задания/хешрейт/принятую шару. Watchdog снимается только после recovery.
-Постоянные привилегии, sudoers, другие риги и settings не менять.
+Всё в прежней cgroup,signal cancellation/child reap/session monitor/guards
+сохранены. Внешний контроллер cgroup555с/watchdog590с/пауза<=600с завершает
+всю cgroup ДОSIGCONT и строго проверяет возврат того же SRBMiner,новые задания,
+свежий хешрейт и принятую шару. Watchdog снять после строгого recovery.
+Без повторов,других ригов,изменений sudoers/драйверов/постоянных служб.
 
-Сохраняются singlepass-gate.log/json, live events/performance/native timings,
-proof/receipt. Скорость — свежие группы/с за полный wall; в SRBTH/s не переводится.
-Три шара прежнего0.3.0 не являются доказательством скорости0.4.0. Не внедрять
-в production без live-результата. Полное задание — SINGLEPASS-KERNEL.md в GitHub.
+Логи fixed-shape-gate.log/json; live native содержит fixed_shape_requested,
+fixed_shape_interior_groups,fixed_shape_fallback_groups. Для полного профиля
+67,108,864группы=66,060,288interior+1,048,576fallback в каждом batch.
+Сохраняются performance/proof/receipt; группы/с не переводить в SRBMinerTH/s.
+Не оставлять в production без измеренного результата. Задание — FIXED-SHAPE.md.

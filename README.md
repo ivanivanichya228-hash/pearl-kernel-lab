@@ -1,3 +1,5 @@
+CURRENT RELEASE: **0.5.0-fixed-shape** — [FIXED-SHAPE.md](FIXED-SHAPE.md). New fixed-K4096/rank256 interior CUDA kernel with explicit safe edge fallback. Same-ELF0.4.0 control; automatic12-fixture/ABBA gate before conditional420s live test.139CPU tests pass; GPU gain unmeasured. Only this task is active; older tasks below are historical.
+
 CURRENT RELEASE: **0.4.0-singlepass-transcript** — [SINGLEPASS-KERNEL.md](SINGLEPASS-KERNEL.md). Actual CUDA transcript specialization for16checkpoints. Original fused control in the same ELF; automatic short correctness/speed gate before a conditional420s live run. No new GPU speedup measured. Only this task is active; all tasks below are historical.
 
 CURRENT RELEASE: **0.3.0-mapped-input** — [MAPPED-INPUT.md](MAPPED-INPUT.md). Ready archive in dist; fresh raw operands generated directly in shared tmpfs. CPU preparation0.487374→0.354845s (−27.19%,4threads), original verifier preserved. GPU throughput/real-pool acceptance of this release untested. Only this task is active; all tasks below are historical and must not be rerun.

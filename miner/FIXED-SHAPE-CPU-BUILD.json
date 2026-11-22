@@ -1,0 +1,65 @@
+{
+  "scope": "CPU validation and offline CUDA compilation only",
+  "GPU_executed": false,
+  "live_speedup_measured": false,
+  "SRBMiner_advantage_measured": false,
+  "Python_tests_passed": 139,
+  "new_independent_dense_goldens_passed": 2,
+  "split_offset_cases_passed": 20,
+  "GPU_gate_fixture_count": 12,
+  "eligible_profile": {
+    "k": 4096,
+    "rank": 256,
+    "proof_n": 16,
+    "interior_tile": [
+      192,
+      256
+    ]
+  },
+  "old_04_SASS_static_counts": {
+    "IMMA": 64,
+    "LDS": 103,
+    "STS": 37,
+    "BRA": 48,
+    "ISETP": 108,
+    "IMAD": 416,
+    "LEA": 45,
+    "SHF": 302
+  },
+  "fixed_SASS_static_counts": {
+    "IMMA": 64,
+    "LDS": 103,
+    "STS": 21,
+    "BRA": 43,
+    "ISETP": 67,
+    "IMAD": 322,
+    "LEA": 52,
+    "SHF": 294
+  },
+  "counts_note": "Static device-function instructions from offline SM89 assembly; not runtime counters or speedup",
+  "resources": [
+    {
+      "arch": "sm_86",
+      "stack_spills": "0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads",
+      "registers": "ptxas info    : Used 168 registers, used 1 barriers, 492 bytes cmem[0]"
+    },
+    {
+      "arch": "sm_89",
+      "stack_spills": "0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads",
+      "registers": "ptxas info    : Used 168 registers, used 1 barriers, 492 bytes cmem[0]"
+    }
+  ],
+  "full_profile_groups": {
+    "total": 67108864,
+    "new_interior": 66060288,
+    "fallback": 1048576
+  },
+  "engine_sha256": "3ed386576fcc0dafad0dd12ab70d84a5a93f8db272d82b6fc111cc19b71bb8e3",
+  "source_sha256": {
+    "include/fixed_shape.cuh": "bbcecab21205e11f1b91c43c15db4bd289ad7194caa09fe48b4a92712eec1d6e",
+    "include/fixed_shape_plan.hpp": "4df8bbe4e470d0b4cfbf109f496cf0daeac08cbc76cd52f3cda7045aa1549ade",
+    "src/kernel.cu": "af5881a85d92be3daa2bd94f9b66bb58e8c19178592bcef211ba0e3b50c28d84",
+    "src/pipeline.cu": "249fc1adfd66af4a8a19c49ea1d035f23695839e54e6b930b3e6a9f8deee2136",
+    "src/bench.cu": "a999932f063763ba3eeaba3f5dcde6a70a00ec9715556cf3772026b13781f5eb"
+  }
+}

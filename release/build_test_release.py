@@ -2,7 +2,7 @@
 import argparse,hashlib,json,re,shutil,subprocess,tarfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-KERNEL='711db036ef1ee512483ab619df0d67d2655e66c7'
+KERNEL='210e993705e2957a15550390e726446792098d04'
 MODULES=['guard_checks.py','pearl_miner.py','luckypool_adapter.py','miner_metrics.py','miner_pipeline.py','persistent_engine.py','queued_engine.py','ram_workspace.py']
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def build(output,engine,oracle,producer=None):
@@ -10,9 +10,11 @@ def build(output,engine,oracle,producer=None):
  if len(fixture_records)!=4:raise ValueError('Four singlepass golden fixtures required')
  for row in fixture_records:
   if digest(ROOT/'tests/fixtures'/row['file'])!=row['sha256']:raise ValueError('Singlepass fixture SHA mismatch')
+ for row in json.loads((ROOT/'tests/fixtures/fixed-shape-manifest.json').read_text()):
+  if digest(ROOT/'tests/fixtures'/row['file'])!=row['sha256']:raise ValueError('Fixed-shape fixture SHA mismatch')
  output=output.absolute()
  if output.exists():raise ValueError('NEW output directory required')
- output.mkdir(parents=True);package=output/'pearl-test-0.4.0-linux-x86_64';package.mkdir()
+ output.mkdir(parents=True);package=output/'pearl-test-0.5.0-linux-x86_64';package.mkdir()
  for n in ('bin','lib','share','licenses','integration'):(package/n).mkdir()
  shutil.copyfile(ROOT/'release/pearl_test.py',package/'pearl-test');(package/'pearl-test').chmod(0o755)
  for n in MODULES:shutil.copyfile(ROOT/'tools'/n,package/'lib'/n)
@@ -38,12 +40,12 @@ def build(output,engine,oracle,producer=None):
  for binary in (engine,oracle,producer):
   text=subprocess.check_output(['readelf','--version-info',str(binary)],text=True)
   versions.extend(tuple(map(int,m)) for m in re.findall(r'Name: GLIBC_(\d+)\.(\d+)\b',text))
- manifest=dict(version='0.4.0-singlepass-transcript',kernel='fused-triple384',kernel_commit=None,kernel_base_commit=KERNEL,kernel_variant='singlepass-transcript16',kernel_source_sha256={name:digest(ROOT/name)for name in ('include/fused_stage.cuh','src/kernel.cu','src/pipeline.cu','src/bench.cu')},source_url='https://github.com/ivanivanichya228-hash/pearl-kernel-lab',engine_build='CUDA13.0.88 / SM86+SM89 / static CUDA runtime',driver_major_min=580,glibc_min=list(max(versions)),developer_fee_percent=0,GPU_release_package_tested=False,controller_required=True,maximum_duration_seconds=420,files={})
+ manifest=dict(version='0.5.0-fixed-shape',kernel='fused-triple384',kernel_commit=None,kernel_base_commit=KERNEL,kernel_variant='fixed-shape4096-rank256-interior',kernel_source_sha256={name:digest(ROOT/name)for name in ('include/fused_stage.cuh','include/fixed_shape.cuh','include/fixed_shape_plan.hpp','src/kernel.cu','src/pipeline.cu','src/bench.cu')},source_url='https://github.com/ivanivanichya228-hash/pearl-kernel-lab',engine_build='CUDA13.0.88 / SM86+SM89 / static CUDA runtime',driver_major_min=580,glibc_min=list(max(versions)),developer_fee_percent=0,GPU_release_package_tested=False,controller_required=True,maximum_duration_seconds=420,files={})
  manifest['data_producer']='mapped-raw-v1'
  manifest['files']={str(p.relative_to(package)):digest(p) for p in sorted(package.rglob('*')) if p.is_file()}
  (package/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
  subprocess.run([str(package/'pearl-test'),'verify','--offline'],check=True)
- archive=output/'pearl-test-0.4.0-linux-x86_64.tar.gz'
+ archive=output/'pearl-test-0.5.0-linux-x86_64.tar.gz'
  with tarfile.open(archive,'w:gz') as tar:tar.add(package,arcname=package.name,filter=lambda i:None if '__pycache__' in i.name else i)
  (output/'SHA256SUMS.txt').write_text(digest(archive)+'  '+archive.name+'\n')
  result={'archive':str(archive),'bytes':archive.stat().st_size,'sha256':digest(archive),'package':str(package),'GPU_executed':False}

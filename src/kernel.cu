@@ -1,5 +1,6 @@
 // Original experimental implementation, not derived from SRBMiner disassembly.
 #include "kernel.cuh"
+#include "fixed_shape_plan.hpp"
 
 namespace pearl_lab {
 namespace {
@@ -57,6 +58,7 @@ __device__ __forceinline__ void prefetch(int8_t* stage, const int8_t* a,
 
 #include "triple_stage.cuh"
 #include "fused_stage.cuh"
+#include "fixed_shape.cuh"
 #include "occupancy_stage.cuh"
 
 template<int Threads, int ProofN, bool Debug, int StageK, bool MatrixLoads = false, bool TwoCTA = false>
@@ -258,6 +260,23 @@ cudaError_t launch_singlepass(const int8_t*a,const int8_t*b,Shape p,KeyTarget co
 cudaError_t singlepass_resource_info(int pn,cudaFuncAttributes*attr,int*blocks){
  if(!attr||!blocks)return cudaErrorInvalidValue;
  if(pn==8)return fused_info<8,true>(attr,blocks);if(pn==16)return fused_info<16,true>(attr,blocks);return cudaErrorInvalidValue;
+}
+cudaError_t launch_fixed_shape(const int8_t*a,const int8_t*b,Shape p,KeyTarget context,CompactHit*hits,uint32_t*found,uint32_t capacity,HitGeometry geometry,cudaStream_t stream){
+ if(!a||!b||!found||(!hits&&capacity))return cudaErrorInvalidValue;
+ try{p.validate();}catch(...){return cudaErrorInvalidValue;}
+ if(!valid_hit_geometry(uint32_t(p.groups()),geometry)||geometry.local_n!=uint32_t(p.n)||geometry.proof_n!=uint32_t(p.proof_n))return cudaErrorInvalidValue;
+ const int full=fixed_shape_interior_rows(p,geometry);
+ if(!full)return launch_singlepass(a,b,p,context,hits,found,capacity,geometry,stream);
+ Shape interior=p;interior.m=full;
+ auto e=fixed_run<16,true>(a,b,context,hits,found,capacity,geometry,interior,stream);if(e!=cudaSuccess)return e;
+ if(full==p.m)return cudaSuccess;
+ Shape edge=p;edge.m=p.m-full;geometry.row0+=uint32_t(full);
+ return launch_singlepass(a+std::size_t(full)*p.k,b,edge,context,hits,found,capacity,geometry,stream);
+}
+cudaError_t fixed_shape_resource_info(int pn,cudaFuncAttributes*attr,int*blocks){
+ if(!attr||!blocks)return cudaErrorInvalidValue;
+ if(pn!=16)return singlepass_resource_info(pn,attr,blocks);
+ return fixed_info<16,true>(attr,blocks);
 }
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
                    int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k, bool matrix_loads, bool two_cta, bool triple_stage) {
