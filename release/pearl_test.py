@@ -7,7 +7,7 @@ from types import SimpleNamespace
 ROOT=Path(__file__).resolve().parent
 # Installed as package/pearl-test; imported from release/ in source tests.
 if ROOT.name=='release':ROOT=ROOT.parent
-VERSION='0.2.2-guard-budget'
+VERSION='0.2.3-nonblocking-guards'
 GPU='GPU-14cc341d-41f4-a977-1a1d-12785f4079da'
 
 def verify_bundle(root=ROOT):

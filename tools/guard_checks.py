@@ -34,16 +34,21 @@ class AsyncGuardChecks:
    self.failed+=1;self.error=error;raise
   finally:self.fast_seconds+=time.monotonic()-start
 
+ def scheduled_check(self,force):
+  # This entire decision and its filesystem/subprocess work run in the worker.
+  if self.error is not None:raise self.error
+  if self.fast is not None and not force and self.last_full_start is not None and time.monotonic()-self.last_full_start<.5:
+   self.periodic_reuses+=1
+   return self.fast_check()
+  if force:self.forced_full_checks+=1
+  # Full validation already includes identity validation; never duplicate it.
+  return self()
+
  async def check_async(self,force=False):
-  self.fast_check()
   start=time.monotonic()
   async with self.lock:
    self.queue_seconds+=time.monotonic()-start
-   self.fast_check()
-   if self.fast is not None and not force and self.last_full_start is not None and time.monotonic()-self.last_full_start<.5:
-    self.periodic_reuses+=1;return
-   if force:self.forced_full_checks+=1
-   task=asyncio.create_task(asyncio.to_thread(self))
+   task=asyncio.create_task(asyncio.to_thread(self.scheduled_check,force))
    try:return await asyncio.shield(task)
    except asyncio.CancelledError:
     # The original nvidia-smi invocation already has a3s subprocess timeout.
@@ -62,7 +67,8 @@ class AsyncGuardChecks:
               cached_results=self.fast is not None,maximum_parallel_checks=1,nonblocking_checks=True,
               full_observation_period_seconds=.5 if self.fast is not None else 0,
               fresh_full_check_before_GPU_request=True,forced_full_checks=self.forced_full_checks,
-              fast_calls=self.fast_calls,fast_seconds=self.fast_seconds,periodic_reuses=self.periodic_reuses)
+              fast_calls=self.fast_calls,fast_seconds=self.fast_seconds,periodic_reuses=self.periodic_reuses,
+              fast_checks_nonblocking=True,duplicated_identity_checks=False)
 
 
 async def check_guard(guard,force=False):

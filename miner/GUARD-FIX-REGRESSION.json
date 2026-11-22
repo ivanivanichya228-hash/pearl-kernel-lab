@@ -1,0 +1,12 @@
+{
+  "old_022_regression_tests": {
+    "ran": 2,
+    "failed_as_expected": 2,
+    "errors": 0
+  },
+  "fixed_023_full_suite": {
+    "passed": 128,
+    "failed": 0
+  },
+  "GPU_executed": false
+}

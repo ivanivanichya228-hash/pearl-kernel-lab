@@ -9,6 +9,7 @@ class GuardBudget(unittest.IsolatedAsyncioTestCase):
   def full():
    state['full']+=1
    if state['bad_full']:raise RuntimeError('PL changed')
+   fast()
   def fast():
    state['fast']+=1
    if state['bad_fast']:raise RuntimeError('Miner resumed')
@@ -45,6 +46,34 @@ class GuardBudget(unittest.IsolatedAsyncioTestCase):
  async def test_simultaneous_periodic_callers_do_not_duplicate_probe(self):
   g,s=self.fixture();await asyncio.gather(*(g.check_async() for _ in range(8)))
   self.assertEqual(s['full'],1);self.assertEqual(g.periodic_reuses,7)
+
+ async def test_exactly_one_identity_check_per_call(self):
+  g,s=self.fixture()
+  for _ in range(5):await g.check_async()
+  await g.check_async(force=True);await g.check_async(force=True)
+  self.assertEqual(s['fast'],7)
+  self.assertEqual(g.calls+g.fast_calls,7)
+
+ async def test_slow_periodic_identity_check_runs_outside_event_loop(self):
+  import threading
+  started=threading.Event();release=threading.Event();threads=[]
+  def full():pass
+  def fast():
+   threads.append(threading.get_ident());started.set();release.wait(1)
+  full.fast_check=fast
+  guard=AsyncGuardChecks(full);await guard.check_async(force=True)
+  timer=threading.Timer(1,release.set);timer.start()
+  task=asyncio.create_task(guard.check_async())
+  try:
+   for _ in range(100):
+    if started.is_set():break
+    await asyncio.sleep(.001)
+   self.assertTrue(started.is_set())
+   await asyncio.sleep(.01)
+   self.assertFalse(task.done(),'The event loop was blocked by the identity check')
+  finally:release.set();timer.cancel();await task
+  self.assertEqual(len(threads),1)
+  self.assertNotEqual(threads[0],threading.get_ident())
 
  def test_original_full_validation_and_fast_identity_checks_are_preserved(self):
   root=Path(__file__).resolve().parents[1]

@@ -1,4 +1,4 @@
-# Pearl Test Miner0.2.2-guard-budget
+# Pearl Test Miner0.2.3-nonblocking-guards
 
 Полный тестовый клиент Pearl для Mint RTX4090, ядро fused-triple384 из711db03.
 Оно прошло golden fixtures и resident compute+filter A/B/B/A:1.925695x относительно
@@ -45,7 +45,7 @@ triple_stage=true, kernel_threads384, GPU_noise_applied=true, target_modified=fa
 мощность из телеметрии внешнего контроллера; автоматически в SRBMinerTH/s не переводятся.
 Ноль найденных шар за короткое окно сам по себе не доказывает неисправность.
 Сохраняются privateevents.jsonl/performance.json/nativeevents и proof/receipt.
-Подробное задание установки и одного теста — GUARD-BUDGET.md в GitHub.
+Подробное задание установки и одного теста — GUARD-FIX.md в GitHub.
 
 Версия0.2.2: PID/start ticks/все потокиT/дубликаты проверяются при каждом обращении.
 Полный UUID/PL опрашивается заново перед КАЖДЫМ GPU-запросом; периодические
@@ -53,3 +53,8 @@ triple_stage=true, kernel_threads384, GPU_noise_applied=true, target_modified=fa
 Ошибки запоминаются и закрывают сеанс; отмена дожидается активного check.
 Срок полного subprocess по-прежнему ограничен3с; внешний watchdog/контроллер прежние.
 Новый live-прирост не измерен. Engine/oracle идентичны проверенной0.2.0.
+
+Исправление0.2.3: оба вида проверок полностью выполняются в фоновом потоке.
+Одно обращение вызывает либо полный опрос с identity, либо одну identity-проверку,
+а не две identity плюс полный опрос. Проверки PID/PL и stop-on-failure сохранены.
+Новый прирост скорости не измерен; GPU-бинарник/oracle/профиль не изменены.
