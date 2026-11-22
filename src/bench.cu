@@ -157,12 +157,12 @@ void verify_triple(const std::string&root,int threads=384){
  }
  std::cout<<"{\"triple_stage\":true,\"matrix_loads\":"<<"false"<<",\"phase\":\"triple_stage_correctness\",\"passed\":true,\"fixtures\":6,\"full_matrix_and_transcript\":true,\"non_debug_transcript_checked\":true,\"other_kernels_executed\":false}\n";
 }
-void verify_fused(const std::string&root){
- for(int pn:{8,16}){cudaFuncAttributes attr{};int blocks=0;check(fused_resource_info(pn,&attr,&blocks));
+void verify_fused(const std::string&root,bool singlepass=false){
+ for(int pn:{8,16}){cudaFuncAttributes attr{};int blocks=0;check((singlepass?singlepass_resource_info:fused_resource_info)(pn,&attr,&blocks));
   if(attr.localSizeBytes||attr.numRegs>170||blocks<1)throw std::runtime_error("fused resources/spills");
   std::cout<<"{\"phase\":\"fused_resources\",\"proof_n\":"<<pn<<",\"registers\":"<<attr.numRegs<<",\"local_bytes\":"<<attr.localSizeBytes<<",\"active_blocks\":"<<blocks<<"}\n";
  }
- for(int i=0;i<6;++i){auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");const uint32_t groups=uint32_t(f.p.groups());
+ for(int i=0;i<(singlepass?10:6);++i){auto f=read_fixture(root+"/case-"+std::to_string(i)+".bin");const uint32_t groups=uint32_t(f.p.groups());
   Buffer<int8_t>a(f.a.size()),b(f.bt.size());a.put(f.a);b.put(f.bt);Buffer<CompactHit>hits(groups+1);Buffer<uint32_t>found(1);
   HitGeometry geometry{32,32,uint32_t(f.p.n),uint32_t(f.p.n+64),uint32_t(f.p.proof_n)};
   KeyTarget context{};for(int j=0;j<8;++j)context.key[j]=0x12345678u+uint32_t(j);
@@ -171,7 +171,7 @@ void verify_fused(const std::string&root){
    for(uint32_t g=0;g<groups;++g){uint32_t h[8];jackpot_hash64(f.golden.transcript.data()+std::size_t(g)*16,context.key,h);
     if(hash_meets_target(h,context.target)){CompactHit hit{};hit.index=uint32_t(compact_global_index(g,geometry));std::copy_n(f.golden.transcript.data()+std::size_t(g)*16,16,hit.transcript);expected.push_back(hit);}}
    for(uint32_t capacity:{0u,1u,groups}){std::vector<CompactHit>initial(groups+1);initial[capacity].index=0xdeadbeefu;initial[capacity].transcript[0]=0xcafef00du;hits.put(initial);found.put({0});
-    check(launch_fused(a.p,b.p,f.p,context,hits.p,found.p,capacity,geometry,nullptr));check(cudaDeviceSynchronize());
+    check((singlepass?launch_singlepass:launch_fused)(a.p,b.p,f.p,context,hits.p,found.p,capacity,geometry,nullptr));check(cudaDeviceSynchronize());
     if(found.get()[0]!=expected.size())throw std::runtime_error("fused target count mismatch fixture="+std::to_string(i));
     auto got=hits.get();if(got[capacity].index!=0xdeadbeefu||got[capacity].transcript[0]!=0xcafef00du)throw std::runtime_error("fused queue overflow");
     const std::size_t written=std::min<std::size_t>(capacity,expected.size());std::vector<uint32_t>seen;
@@ -181,14 +181,15 @@ void verify_fused(const std::string&root){
    }
   }
  }
- std::cout<<"{\"phase\":\"fused_correctness\",\"passed\":true,\"fixtures\":6,\"exact_transcripts_all_groups\":true,\"mixed_target_and_capacity_edges\":true}\n";
+ std::cout<<"{\"phase\":\"fused_correctness\",\"singlepass_candidate\":"<<(singlepass?"true":"false")<<",\"passed\":true,\"fixtures\":"<<(singlepass?10:6)<<",\"exact_transcripts_all_groups\":true,\"mixed_target_and_capacity_edges\":true}\n";
 }
-double measure_fused(const int8_t*a,const int8_t*b,uint32_t*transcripts,Shape shape,bool fused,const char*pci,int leg){
+double measure_fused(const int8_t*a,const int8_t*b,uint32_t*transcripts,Shape shape,bool fused,const char*pci,int leg,bool singlepass_comparison=false){
  Buffer<uint32_t>count(1);Buffer<CompactHit>hits(1);KeyTarget context{};for(int j=0;j<8;++j)context.key[j]=uint32_t(j+1);
  HitGeometry geometry{0,0,uint32_t(shape.n),uint32_t(shape.n),uint32_t(shape.proof_n)};
  cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
  auto launch_one=[&]{check(cudaMemsetAsync(count.p,0,4,stream));
-  if(fused)check(launch_fused(a,b,shape,context,hits.p,count.p,1,geometry,stream));
+  if(singlepass_comparison)check((fused?launch_singlepass:launch_fused)(a,b,shape,context,hits.p,count.p,1,geometry,stream));
+  else if(fused)check(launch_fused(a,b,shape,context,hits.p,count.p,1,geometry,stream));
   else{check(launch(a,b,transcripts,nullptr,shape,384,stream,64,false,false,true));check(launch_compact_filter(transcripts,uint32_t(shape.groups()),context,hits.p,count.p,1,geometry,stream));}};
  for(int i=0;i<3;++i)launch_one();check(cudaStreamSynchronize(stream));
  check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeGlobal));for(int i=0;i<16;++i)launch_one();cudaGraph_t graph;check(cudaStreamEndCapture(stream,&graph));cudaGraphExec_t exec;check(cudaGraphInstantiate(&exec,graph,nullptr,nullptr,0));
@@ -294,17 +295,18 @@ void diagnose384(bool counters) {
 } // namespace
 int main(int argc,char**argv){
   try {
-    bool allow=false,concurrent=false,matrix_loads=false,two_cta=false,triple_stage=false,fused_stage=false;int paused_pid=0;uint64_t paused_ticks=0;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin",pipeline_fixture,pipeline_export,work_input,work_output,noise_reference_path;
+    bool allow=false,concurrent=false,matrix_loads=false,two_cta=false,triple_stage=false,fused_stage=false,singlepass=false;int paused_pid=0;uint64_t paused_ticks=0;int device=0,candidate=256,stage_k=64;std::string mode="check",fixtures="tests/fixtures",export_path,hash_vectors="pool/hash-vectors.bin",pipeline_fixture,pipeline_export,work_input,work_output,noise_reference_path;
     Shape shape{2048,6144,4096,128,16};ValidationPlan plan;
     for(int i=1;i<argc;++i){
       std::string s=argv[i];
       if(s=="--help"){
         std::cout<<"pearl-bench --run-gpu [--mode check|bench|info|filter-check|pipeline-check|mine-batch|worker|overlap-worker|noise-check|compact-check|fused-check|fused-compare|occupancy-check|occupancy-compare|kernel384-check|kernel384-compare|matrix-check|matrix-compare|kernel-diagnose|kernel-counters|two-cta-check|two-cta-compare|triple-check|triple-compare] [--device N]\n"
           <<"  [--fixtures DIR --export-transcripts FILE] [--hash-vectors FILE] [--pipeline-fixture FILE --export-pipeline FILE] [--work-input FILE --work-output FILE] [--noise-reference FILE] [--paused-pid PID --paused-start-ticks TICKS] [--m M --n N --k K --rank R --proof-n 8|16]\n"
-          <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads] [--two-cta] [--triple-stage] [--fused-stage]\n"
+          <<"  [--duration 1..10 --warmup 0..5 --rounds 1..3] [--candidate 128|256|384|512 --stage-k 32|64] [--allow-concurrent-miner] [--matrix-loads] [--two-cta] [--triple-stage] [--fused-stage] [--singlepass-transcript]\n"
           <<"No GPU work without --run-gpu. No miner, clock, fan or power changes.\n"
           <<"Bench runs correctness first, then an A/B/B/A sequence. Matrix TOPS is NOT Pearl hashrate.\n";return 0;
       }
+      if(s=="--singlepass-transcript"){singlepass=true;continue;}
       if(s=="--fused-stage"){fused_stage=true;continue;}
       if(s=="--triple-stage"){triple_stage=true;continue;}
       if(s=="--two-cta"){two_cta=true;continue;}
@@ -345,6 +347,7 @@ int main(int argc,char**argv){
     if(triple_stage&&candidate==256&&mode!="occupancy-check"&&mode!="occupancy-compare"&&mode!="fused-check"&&mode!="fused-compare")throw std::runtime_error("lane-triple256 is validation-only until GPU correctness and performance pass");
     if((mode=="fused-check"||mode=="fused-compare")&&(!triple_stage||candidate!=384||stage_k!=64||matrix_loads||two_cta))throw std::runtime_error("fused mode needs original384/stage64/triple");
     if(fused_stage&&(!triple_stage||candidate!=384||matrix_loads||two_cta||stage_k!=64||(mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("fused-stage requires triple384 worker/mine-batch exclusively");
+    if(singlepass&&(!triple_stage||candidate!=384||matrix_loads||two_cta||stage_k!=64||((mode=="worker"||mode=="mine-batch")&&!fused_stage)||(mode!="fused-check"&&mode!="fused-compare"&&mode!="worker"&&mode!="mine-batch")))throw std::runtime_error("singlepass requires fused384 check/compare or fused worker");
     plan.validate();
     bool miner=miner_present();
     if(miner&&!concurrent)throw std::runtime_error("SRBMiner process found; no GPU work performed. Use a separate idle test GPU. Explicit --allow-concurrent-miner is required to override this guard; concurrent timings are not a speedup measurement.");
@@ -378,14 +381,14 @@ int main(int argc,char**argv){
       const double ratio=(times[0]+times[3])/(times[1]+times[2]);const bool passed=ratio>1.02&&std::max(times[1],times[2])<std::min(times[0],times[3]);
       std::cout<<"{\"phase\":\"matrix_comparison\",\"resident_input_only\":true,\"baseline_threads\":384,\"candidate_threads\":384,\"stage_k_both\":64,\"baseline_matrix_loads\":false,\"candidate_matrix_loads\":true,\"post_compare_transcript_equal\":true,\"speed_ratio\":"<<ratio<<",\"candidate_faster_for_live\":"<<(passed?"true":"false")<<",\"live_hashrate_measured\":false}\n";return 0;
     }
-    if(mode=="fused-check"){verify_fused(fixtures);return 0;}
+    if(mode=="fused-check"){verify_fused(fixtures,singlepass);return 0;}
     if(mode=="fused-compare"){
       if(shape.m!=8192||shape.n!=8192||shape.k!=4096||shape.rank!=256||shape.proof_n!=16||plan.rounds!=1||plan.duration!=1||plan.warmup!=.25)throw std::runtime_error("exact bounded8192 profile required");
-      verify_fused(fixtures);
+      verify_fused(fixtures,singlepass);
       Buffer<int8_t>a(std::size_t(shape.m)*shape.k),b(std::size_t(shape.n)*shape.k);std::vector<int8_t>ha(std::size_t(shape.m)*shape.k),hb(std::size_t(shape.n)*shape.k);
       for(std::size_t i=0;i<ha.size();++i)ha[i]=int8_t(int(i%127)-63);for(std::size_t i=0;i<hb.size();++i)hb[i]=int8_t(int((i*7)%127)-63);a.put(ha);b.put(hb);Buffer<uint32_t>transcripts(shape.groups()*16);
-      double times[4];for(int leg=0;leg<4;++leg)times[leg]=measure_fused(a.p,b.p,transcripts.p,shape,leg==1||leg==2,pci,leg);
-      const double ratio=(times[0]+times[3])/(times[1]+times[2]);std::cout<<"{\"phase\":\"fused_comparison\",\"baseline\":\"triple384+filter\",\"candidate\":\"fused-triple384\",\"speed_ratio\":"<<ratio<<",\"live_hashrate_measured\":false}\n";return 0;
+      double times[4];for(int leg=0;leg<4;++leg)times[leg]=measure_fused(a.p,b.p,transcripts.p,shape,leg==1||leg==2,pci,leg,singlepass);
+      const double ratio=(times[0]+times[3])/(times[1]+times[2]);std::cout<<"{\"phase\":\"fused_comparison\",\"baseline\":\""<<(singlepass?"original-fused-triple384":"triple384+filter")<<"\",\"candidate\":\""<<(singlepass?"singlepass-fused-triple384":"fused-triple384")<<"\",\"speed_ratio\":"<<ratio<<",\"live_hashrate_measured\":false}\n";return 0;
     }
     if(mode=="occupancy-check"){verify_triple(fixtures,256);return 0;}
     if(mode=="occupancy-compare"){
@@ -425,8 +428,8 @@ int main(int argc,char**argv){
     if(mode=="noise-check"){check_gpu_noise(work_input,noise_reference_path);return 0;}
     if(mode=="overlap-worker"){overlap_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during overlap worker");},candidate);return 0;}
     if(mode=="worker"){if(miner&&(!paused_pid||!paused_ticks))throw std::runtime_error("persistent worker requires paused miner identity");
-      mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");},candidate,matrix_loads,two_cta,triple_stage,fused_stage);return 0;}
-    if(mode=="mine-batch"){mine_batch(work_input,work_output,candidate,matrix_loads,two_cta,triple_stage,fused_stage);return 0;}
+      mining_worker([&]{if(paused_pid)require_paused_miner(paused_pid,paused_ticks);else if(miner_present())throw std::runtime_error("SRBMiner appeared during worker lifetime");},candidate,matrix_loads,two_cta,triple_stage,fused_stage,singlepass);return 0;}
+    if(mode=="mine-batch"){mine_batch(work_input,work_output,candidate,matrix_loads,two_cta,triple_stage,fused_stage,singlepass);return 0;}
     if(mode=="pipeline-check"){check_jackpot_filter(hash_vectors);check_batch_pipeline(pipeline_fixture,pipeline_export);return 0;}
     if(mode=="filter-check"){check_jackpot_filter(hash_vectors);return 0;}
     resources(shape.proof_n);if(mode=="info")return 0;

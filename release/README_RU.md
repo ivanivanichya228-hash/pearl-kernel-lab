@@ -1,63 +1,51 @@
-# Pearl Test Miner0.3.0-mapped-input
+# Pearl Test Miner0.4.0-singlepass-transcript
 
-Полный тестовый клиент Pearl для Mint RTX4090, ядро fused-triple384 из711db03.
-Оно прошло golden fixtures и resident compute+filter A/B/B/A:1.925695x относительно
-нашего triple384+filter. Реальный майнинг ЭТОЙ сборкой ещё не проверен;
-преимущество над SRBMiner не доказано. Комиссия разработчика0%, комиссия пула своя.
+Готовый тестовый клиент для одной Mint RTX4090. Изменено CUDA-ядро, а не guards
+или подготовка CPU. Преимущество над SRBMiner и новый GPU-прирост пока не измерены.
+Комиссия разработчика0%, комиссия пула своя.
 
-Внутри bin/pearl-engine, неизменённый bin/pearl-protocol-oracle и новый
-bin/pearl-data-producer; Python-клиент с одной
-командой pearl-test, полный profile, проверка хешей, issuer для прежнего контроллера.
-Не нужны Toolkit/Rust/NumPy; LinuxMintx86_64, Python>=3.10,glibc>=2.38,driver>=580.
-Точная карта GPU-14cc341d-41f4-a977-1a1d-12785f4079da, ожидается PL310.
-Частоты, напряжение, PL, вентиляторы и службы программа не изменяет.
+Оптимизация при k==16*rank: каждый из16слотов transcript пишется один раз,
+поэтому удалены начальное обнуление, чтение/rotation старого значения.
+Остальные формы используют прежний fused kernel. MMA, cp.async, размеры tile,
+семантика commitments/noise/target/proof не менялись. Полный профильk4096/rank256
+попадает в новый путь. CPU-производитель и оригинальный pinned checker из0.3.0.
+Старое fused-ядро включено в тот же ELF как контроль.
 
-Распакуй в НОВЫЙ каталог, сохрани предыдущие установки. Команды подготовки:
+После импорта приватного конфига и до паузы:
 
     ./pearl-test version
     ./pearl-test verify
-    ./pearl-test configure --import-config /абсолютный/путь/к/приватному/config.json
+    ./pearl-test configure --import-config /EXISTING_PRIVATE/config.json
 
-verify не запускает CUDA-вычисления и не соединяется с пулом. На другом Linux
-допускается verify --offline. Импорт сохраняет host/port/wallet/worker; создаёт
-новый config.json0600, не перезаписывает существующий. Профиль — комплектный полный.
-Подтверждён протокол plainJSONLuckyPool; другие протоколы не заявлены.
+Новый каталог, никаких перезаписей. Все host/port/wallet/worker сохраняются,
+config0600. Нужны Linuxx86_64,Python>=3.10,glibc>=2.38,driver>=580;
+Rust/Toolkit/NumPy на риге не требуются. GPU UUID
+GPU-14cc341d-41f4-a977-1a1d-12785f4079da,PL310,прочие настройки прежние.
+Программа не меняет напряжения, частоты, PL, вентиляторы или службы.
 
-Реальный запуск выполняет ТОЛЬКО прежний проверенный root-контроллер; GPU-клиент
-работает UID/GID1000, все capabilities0, NoNewPrivileges=yes. Сначала независимый
-watchdog, SIGSTOP исходного SRBMiner с pidfd/start ticks, все потокиT, простой GPU,
-нет другого compute. Затем root-receipt, привязанный к cgroup/watchdog/дедлайну:
+Запуск только прежним проверенным внешним root-контроллером; клиент UID/GID1000,
+capabilities0,NoNewPrivileges=yes. Нужны действительный root-receipt в правильной
+cgroup, независимый watchdog до SIGSTOP, all-threadsT/idle/unique-compute.
 
-    ./pearl-test run --config /абсолютный/config.json \
+    ./pearl-test run --config /NEW_PACKAGE/config.json \
       --session /run/pearl-test-sessions/ID/session.json \
-      --state /НОВЫЙ/приватный/pilot-run --ram-dir /проверенный/private/tmpfs --duration 420
+      --state /NEW_PRIVATE/pilot-run --ram-dir /PRIVATE_TMPFS --duration 420
 
-Без действительного root-receipt и правильной cgroup запуск блокируется.
-Первый сеанс420с, вся пауза<=600с. Issuer/API восстановления не менялись.
-Внешний контроллер завершает ВСЮ cgroup перед SIGCONT и строго подтверждает возврат
-того же SRBMiner. Ctrl+C не заменяет подтверждение восстановления.
+Внутри команды сначала автоматически выполняются10GPU fixtures и одно короткое
+A/B/B/A: именно original-fused384 против singlepass-fused384 на одном8192профиле,
+без сравнения со старым separate-filter. Точные transcripts, смешанный target,
+queue capacity0/1/all, proof8/16, partial tiles и fallback обязательны.
+Затем проверяются исходные4времени: отношение>1.03 и обе B быстрее обеих A.
+Только после успеха gate начинается420с полного майнинга. Иначе выход/восстановление
+без длинного сеанса. Gate timeout45с; вся пауза<=600с, существующий контроллер
+cgroup555с/watchdog590с. После gate повторно проверяется запас времени сессии.
 
-Новый native-путь: fused_stage=true, global_transcript_materialized=false,
-triple_stage=true, kernel_threads384, GPU_noise_applied=true, target_modified=false.
-Кошелёк и действительный target не подменяются. Строятся прежние Rust-доказательства,
-пул получает настоящие шары. Reject/unknown завершают тест без автоповторов.
+Gate и live-клиент находятся в одной cgroup; отмена дожидается child/reap.
+Контроллер завершает всю cgroup ДОSIGCONT и строго проверяет возврат того же SRB,
+свежие задания/хешрейт/принятую шару. Watchdog снимается только после recovery.
+Постоянные привилегии, sudoers, другие риги и settings не менять.
 
-Показатели — свежие группы/с, accepted/rejected/unknown, native stage timings,
-мощность из телеметрии внешнего контроллера; автоматически в SRBMinerTH/s не переводятся.
-Ноль найденных шар за короткое окно сам по себе не доказывает неисправность.
-Сохраняются privateevents.jsonl/performance.json/nativeevents и proof/receipt.
-Подробное задание установки и одного теста — MAPPED-INPUT.md в GitHub.
-
-Новый путь0.3.0: CPU генерирует случайные INT7-матрицы сразу в MAP_SHARED-файлах
-приватного tmpfs. Нет промежуточных Vec на1ГиБ и последующего fs::write на1ГиБ.
-GPU получает прежний PRLRAWN1-манифест188байт и те же форматы массивов.
-Свежая OS-случайность, commitments, target и доказательства сохраняются.
-Оригинальный pinned oracle продолжает независимо проверять/строить proof;
-новый producer используется только для work-prepare-mapped. Engine не менялся.
-
-CPU-подготовка полного1ГиБ на машине разработки:0.487374→0.354845с,−27.19% времени
-(четыре потока, A/B/B/A после отдельных прогревов). Это НЕ прирост хешрейта;
-подготовка перекрывается с вычислениями, результат на4090 пока не измерен.
-Пять Rust-тестов,128Python-тестов,26 независимых official proofs и полный
-CPU-loopback проверены. Mockaccepted не являются шарами настоящего пула.
-Механизм watchdog/recovery и nonblocking guards из0.2.3 сохранены.
+Сохраняются singlepass-gate.log/json, live events/performance/native timings,
+proof/receipt. Скорость — свежие группы/с за полный wall; в SRBTH/s не переводится.
+Три шара прежнего0.3.0 не являются доказательством скорости0.4.0. Не внедрять
+в production без live-результата. Полное задание — SINGLEPASS-KERNEL.md в GitHub.

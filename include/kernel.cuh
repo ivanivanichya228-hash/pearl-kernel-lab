@@ -28,4 +28,6 @@ cudaError_t resource_info(int threads, int proof_n, bool debug,
 // Experimental standalone fused triple384 + exact keyed target check.
 cudaError_t launch_fused(const int8_t*,const int8_t*,Shape,KeyTarget,CompactHit*,uint32_t*,uint32_t,HitGeometry,cudaStream_t);
 cudaError_t fused_resource_info(int,cudaFuncAttributes*,int*);
+cudaError_t launch_singlepass(const int8_t*,const int8_t*,Shape,KeyTarget,CompactHit*,uint32_t*,uint32_t,HitGeometry,cudaStream_t);
+cudaError_t singlepass_resource_info(int,cudaFuncAttributes*,int*);
 }  // namespace pearl_lab

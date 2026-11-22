@@ -7,7 +7,7 @@ from types import SimpleNamespace
 ROOT=Path(__file__).resolve().parent
 # Installed as package/pearl-test; imported from release/ in source tests.
 if ROOT.name=='release':ROOT=ROOT.parent
-VERSION='0.3.0-mapped-input'
+VERSION='0.4.0-singlepass-transcript'
 GPU='GPU-14cc341d-41f4-a977-1a1d-12785f4079da'
 
 def verify_bundle(root=ROOT):
@@ -22,7 +22,7 @@ def verify_bundle(root=ROOT):
 
 def loader_check(root=ROOT):
  engine=subprocess.run([str(root/'bin/pearl-engine'),'--help'],capture_output=True,text=True,check=True,timeout=5)
- if '--triple-stage' not in engine.stdout or '--fused-stage' not in engine.stdout:raise ValueError('Вычислительный бинарник не поддерживает triple384')
+ if '--triple-stage' not in engine.stdout or '--fused-stage' not in engine.stdout or '--singlepass-transcript' not in engine.stdout:raise ValueError('Вычислительный бинарник не поддерживает triple384')
  oracle=subprocess.run([str(root/'bin/pearl-protocol-oracle')],capture_output=True,text=True,timeout=5)
  if oracle.returncode!=1 or 'usage:' not in oracle.stderr.lower():raise ValueError('Проверяющий бинарник не загрузился')
 
@@ -102,10 +102,29 @@ def format_status(event,row):
  if event=='failed':return 'Тест остановлен из-за ошибки; журнал сохранён'
  return None
 
+def validate_singlepass_gate(text):
+ rows=[]
+ for line in text.splitlines():
+  try:row=json.loads(line)
+  except ValueError:continue
+  if isinstance(row,dict):rows.append(row)
+ checks=[r for r in rows if r.get('phase')=='fused_correctness']
+ summary=[r for r in rows if r.get('phase')=='fused_comparison']
+ legs=[r for r in rows if r.get('phase')=='fused_benchmark']
+ if len(checks)!=1 or checks[0].get('singlepass_candidate') is not True or checks[0].get('fixtures')!=10 or checks[0].get('passed') is not True:raise ValueError('Singlepass correctness gate missing')
+ if len(summary)!=1 or summary[0].get('baseline')!='original-fused-triple384' or summary[0].get('candidate')!='singlepass-fused-triple384':raise ValueError('Wrong comparison baseline')
+ if len(legs)!=4 or [r.get('leg')for r in legs]!=[0,1,2,3] or [r.get('fused')for r in legs]!=[False,True,True,False]:raise ValueError('Incomplete A/B/B/A')
+ values=[r.get('combined_compute_filter_ms')for r in legs]
+ if any(type(x)not in(int,float) or not math.isfinite(x)or x<=0 for x in values):raise ValueError('Invalid timings')
+ ratio=(values[0]+values[3])/(values[1]+values[2]);claimed=summary[0].get('speed_ratio')
+ if type(claimed)not in(int,float)or not math.isfinite(claimed)or abs(claimed-ratio)>0.0001*ratio:raise ValueError('Comparison ratio mismatch')
+ if ratio<=1.03 or max(values[1],values[2])>=min(values[0],values[3]):raise ValueError('New kernel did not pass speed gate; no live run')
+ return {'passed':True,'ratio':ratio,'scope':'resident compute/filter; not full mining hashrate','legs_ms':values}
+
 async def run_pilot(args,config):
  runner_security(Path('/proc/self/status').read_text(),os.geteuid())
  if not 1<=args.duration<=420:raise ValueError('Продолжительность теста:1–420 секунд')
- session,pid,ticks=read_session(args.session,config,args.duration)
+ session,pid,ticks=read_session(args.session,config,args.duration+45)
  os.umask(0o077)
  sys.path.insert(0,str(ROOT/'lib'))
  import pearl_miner as miner
@@ -120,13 +139,22 @@ async def run_pilot(args,config):
   line=format_status(event,row)
   if line:print(line,flush=True)
  miner.emit=emit
- options=SimpleNamespace(config=runtime,pipeline=True,gpu_noise=True,kernel_threads=384,triple_stage=True,fused_stage=True,two_cta=False,matrix_loads=False,transfer_overlap=False,oracle=ROOT/'bin/pearl-protocol-oracle',producer=ROOT/'bin/pearl-data-producer',engine=ROOT/'bin/pearl-engine',mock_cpu=False,allow_live=True,enable_submit=True,gpu=GPU,expected_power_limit_w=Decimal(310),paused_pid=pid,paused_start_ticks=ticks,sanitizer=False,duration=args.duration,extended_test=True,measure_stability=True,stop_after_accepted=0,max_batches=0,ram_dir=args.ram_dir,workdir=work,evidence=evidence)
+ options=SimpleNamespace(config=runtime,pipeline=True,gpu_noise=True,kernel_threads=384,triple_stage=True,fused_stage=True,singlepass_transcript=True,two_cta=False,matrix_loads=False,transfer_overlap=False,oracle=ROOT/'bin/pearl-protocol-oracle',producer=ROOT/'bin/pearl-data-producer',engine=ROOT/'bin/pearl-engine',mock_cpu=False,allow_live=True,enable_submit=True,gpu=GPU,expected_power_limit_w=Decimal(310),paused_pid=pid,paused_start_ticks=ticks,sanitizer=False,duration=args.duration,extended_test=True,measure_stability=True,stop_after_accepted=0,max_batches=0,ram_dir=args.ram_dir,workdir=work,evidence=evidence)
  async def monitor():
   while True:
    # Remaining duration is enforced by the miner; retain a20s recovery margin.
    read_session(args.session,config,0)
    await asyncio.sleep(2)
- task=asyncio.create_task(miner.main_async(options));watch=asyncio.create_task(monitor())
+ async def gated_run():
+  guard=miner.AsyncGuardChecks(miner.gpu_guard(GPU,Decimal(310),pid,ticks))
+  await miner.check_guard(guard,force=True)
+  command=[ROOT/'bin/pearl-engine','--run-gpu','--mode','fused-compare','--singlepass-transcript','--triple-stage','--candidate','384','--stage-k','64','--m','8192','--n','8192','--k','4096','--rank','256','--proof-n','16','--duration','1','--warmup','0.25','--rounds','1','--fixtures',ROOT/'share/fixtures','--paused-pid',str(pid),'--paused-start-ticks',str(ticks),'--allow-concurrent-miner']
+  log=destination/'singlepass-gate.log'
+  await miner.child(command,45,guard,log)
+  result=validate_singlepass_gate(log.read_text());(destination/'singlepass-gate.json').write_text(json.dumps(result,indent=2)+'\n')
+  read_session(args.session,config,args.duration)
+  await miner.main_async(options)
+ task=asyncio.create_task(gated_run());watch=asyncio.create_task(monitor())
  loop=asyncio.get_running_loop()
  for sig in (signal.SIGINT,signal.SIGTERM):loop.add_signal_handler(sig,task.cancel)
  try:

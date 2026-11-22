@@ -1,0 +1,54 @@
+[
+  {
+    "file": "case-6.bin",
+    "shape": [
+      32,
+      48,
+      4096,
+      256,
+      16
+    ],
+    "sha256": "8aaecabd4eb49a647508353f35e746bc0fb1ff48b991e5ed3c14551732cb76f5",
+    "checkpoint_count": 16,
+    "independent_oracle": "NumPy cumulative int64 GEMM + original rotating XOR recurrence"
+  },
+  {
+    "file": "case-7.bin",
+    "shape": [
+      32,
+      48,
+      2048,
+      128,
+      8
+    ],
+    "sha256": "1579faf459aeb97acf220e66fd444d8e18da7f4e10154ca3b51b8dedc6b21c13",
+    "checkpoint_count": 16,
+    "independent_oracle": "NumPy cumulative int64 GEMM + original rotating XOR recurrence"
+  },
+  {
+    "file": "case-8.bin",
+    "shape": [
+      208,
+      272,
+      512,
+      32,
+      16
+    ],
+    "sha256": "df4ba36d5dfc8b8fed2bf3eb232d7938f0d9508e8d81478992be89e83055d539",
+    "checkpoint_count": 16,
+    "independent_oracle": "NumPy cumulative int64 GEMM + original rotating XOR recurrence"
+  },
+  {
+    "file": "case-9.bin",
+    "shape": [
+      208,
+      272,
+      512,
+      32,
+      8
+    ],
+    "sha256": "5474c034d52a3854c7df9103730739045d76b0044fac91214d28991acbd7cfdd",
+    "checkpoint_count": 16,
+    "independent_oracle": "NumPy cumulative int64 GEMM + original rotating XOR recurrence"
+  }
+]

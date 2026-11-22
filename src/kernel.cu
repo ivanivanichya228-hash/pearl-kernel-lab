@@ -247,6 +247,18 @@ cudaError_t fused_resource_info(int pn,cudaFuncAttributes*attr,int*blocks){
  if(!attr||!blocks)return cudaErrorInvalidValue;
  if(pn==8)return fused_info<8>(attr,blocks);if(pn==16)return fused_info<16>(attr,blocks);return cudaErrorInvalidValue;
 }
+cudaError_t launch_singlepass(const int8_t*a,const int8_t*b,Shape p,KeyTarget context,CompactHit*hits,uint32_t*found,uint32_t capacity,HitGeometry geometry,cudaStream_t stream){
+ if(!a||!b||!found||(!hits&&capacity))return cudaErrorInvalidValue;
+ try{p.validate();}catch(...){return cudaErrorInvalidValue;}
+ if(!valid_hit_geometry(uint32_t(p.groups()),geometry)||geometry.local_n!=uint32_t(p.n)||geometry.proof_n!=uint32_t(p.proof_n))return cudaErrorInvalidValue;
+ if(p.k!=16*p.rank)return launch_fused(a,b,p,context,hits,found,capacity,geometry,stream);
+ if(p.proof_n==8)return fused_run<8,true>(a,b,context,hits,found,capacity,geometry,p,stream);
+ return fused_run<16,true>(a,b,context,hits,found,capacity,geometry,p,stream);
+}
+cudaError_t singlepass_resource_info(int pn,cudaFuncAttributes*attr,int*blocks){
+ if(!attr||!blocks)return cudaErrorInvalidValue;
+ if(pn==8)return fused_info<8,true>(attr,blocks);if(pn==16)return fused_info<16,true>(attr,blocks);return cudaErrorInvalidValue;
+}
 cudaError_t launch(const int8_t* a, const int8_t* bt, uint32_t* out,
                    int32_t* matrix, Shape p, int threads, cudaStream_t stream, int stage_k, bool matrix_loads, bool two_cta, bool triple_stage) {
   try { p.validate(); } catch (...) { return cudaErrorInvalidValue; }

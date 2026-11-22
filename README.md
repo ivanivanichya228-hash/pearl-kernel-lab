@@ -1,3 +1,5 @@
+CURRENT RELEASE: **0.4.0-singlepass-transcript** — [SINGLEPASS-KERNEL.md](SINGLEPASS-KERNEL.md). Actual CUDA transcript specialization for16checkpoints. Original fused control in the same ELF; automatic short correctness/speed gate before a conditional420s live run. No new GPU speedup measured. Only this task is active; all tasks below are historical.
+
 CURRENT RELEASE: **0.3.0-mapped-input** — [MAPPED-INPUT.md](MAPPED-INPUT.md). Ready archive in dist; fresh raw operands generated directly in shared tmpfs. CPU preparation0.487374→0.354845s (−27.19%,4threads), original verifier preserved. GPU throughput/real-pool acceptance of this release untested. Only this task is active; all tasks below are historical and must not be rerun.
 
 CURRENT: [TRIPLE-STAGE-KERNEL.md](TRIPLE-STAGE-KERNEL.md), revision0.20.0. Separate192x256/384 kernel,three swizzled64-wide stages for proof16;original scalar384 control unchanged.0spills,98CPU tests passed.GPU speed untested.One bounded correctness/shortgate then conditional live test.Earlier tasks historical.

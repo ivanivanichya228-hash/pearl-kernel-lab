@@ -1,0 +1,43 @@
+{
+  "GPU_executed": false,
+  "Python_tests_passed": 135,
+  "independent_CXX_fixtures_passed": 4,
+  "fixture_total_for_GPU_gate": 10,
+  "singlepass_guard": "k==16*rank; otherwise original fused kernel",
+  "compiler": "CUDA13.0.88",
+  "architectures": [
+    "sm_86",
+    "sm_89"
+  ],
+  "proof16_registers_both": 168,
+  "proof8_registers_both": 167,
+  "stack_bytes": 0,
+  "spill_load_bytes": 0,
+  "spill_store_bytes": 0,
+  "SM89_static_SASS_counts": {
+    "original": {
+      "LDS": 135,
+      "STS": 66,
+      "SHF": 334,
+      "IMMA": 64,
+      "REDUX": 32
+    },
+    "singlepass": {
+      "LDS": 103,
+      "STS": 37,
+      "SHF": 302,
+      "IMMA": 64,
+      "REDUX": 32
+    }
+  },
+  "instruction_counts_are_not_runtime_or_speedup": true,
+  "engine_sha256": "0d0a0342ed43214e4134930ffbfefca60fd0a851e3e932af74a91ef5dee8eef0",
+  "source_sha256": {
+    "include/fused_stage.cuh": "2787b434b5ab962f815d8cadf5a20815200ee15dab5aa124d7712fc9cafd598d",
+    "src/kernel.cu": "281d7f9fce47897329a19d098f254254f844ef86b76cf53b5c2f94b415ec91da",
+    "src/bench.cu": "726d2725752b26a35fe326c13ee53bf18f0231b190cc275cd83008d1e98c95ad",
+    "src/pipeline.cu": "baaebf2813b6e3300a03bbca3ebae4b697ad1fa0446e2bce180cd5323245ab38"
+  },
+  "live_speedup_measured": false,
+  "SRBMiner_advantage_measured": false
+}

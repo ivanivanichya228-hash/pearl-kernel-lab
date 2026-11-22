@@ -14,7 +14,7 @@ __device__ __forceinline__ void fused_prefetch(int8_t* dst,const int8_t*a,const 
   }
   asm volatile("cp.async.commit_group;" ::: "memory");
 }
-template<int ProofN>
+template<int ProofN,bool SinglePass=false>
 __global__ __launch_bounds__(384, 1)
 void pearl_fused(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
                 KeyTarget context, CompactHit* hits, uint32_t* found, uint32_t capacity, HitGeometry geometry, Shape p) {
@@ -31,7 +31,7 @@ void pearl_fused(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
   // In the compact variant, lane 0..15 each own one transcript slot.
   uint32_t lane_history[mi_count][ni_count / combine] = {};
   auto* history = reinterpret_cast<uint32_t*>(memory + stages * stage_bytes);
-  if constexpr (Threads != 128)
+  if constexpr (!SinglePass && Threads != 128)
     for (int t = threadIdx.x; t < proofs * 16; t += Threads) history[t] = 0;
   const int warp = threadIdx.x >> 5, lane = threadIdx.x & 31;
   const int wm = warp / warps_n, wn = warp % warps_n;
@@ -87,7 +87,8 @@ void pearl_fused(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
             const int proof = (warp_row / 16 + im) * (tile_n / ProofN)
                             + warp_col / ProofN + pn;
             uint32_t& h = Threads == 128 ? lane_history[im][pn] : history[proof * 16 + slot];
-            h = (h << 13 | h >> 19) ^ x;
+            if constexpr(SinglePass) h=x;
+            else h = (h << 13 | h >> 19) ^ x;
           }
         }
       }
@@ -126,18 +127,18 @@ void pearl_fused(const int8_t* __restrict__ a, const int8_t* __restrict__ bt,
     }
   }
 }
-template<int PN>cudaError_t fused_run(const int8_t*a,const int8_t*bt,KeyTarget context,CompactHit*hits,uint32_t*found,uint32_t capacity,HitGeometry geometry,Shape p,cudaStream_t stream){
+template<int PN,bool SinglePass=false>cudaError_t fused_run(const int8_t*a,const int8_t*bt,KeyTarget context,CompactHit*hits,uint32_t*found,uint32_t capacity,HitGeometry geometry,Shape p,cudaStream_t stream){
  static thread_local int configured=-1;int device=-1;auto e=cudaGetDevice(&device);if(e!=cudaSuccess)return e;
  if(configured!=device){
-  e=cudaFuncSetAttribute(pearl_fused<PN>,cudaFuncAttributeMaxDynamicSharedMemorySize,triple_bytes<PN>());if(e!=cudaSuccess)return e;
-  e=cudaFuncSetAttribute(pearl_fused<PN>,cudaFuncAttributePreferredSharedMemoryCarveout,100);if(e!=cudaSuccess)return e;configured=device;
+  e=cudaFuncSetAttribute(pearl_fused<PN,SinglePass>,cudaFuncAttributeMaxDynamicSharedMemorySize,triple_bytes<PN>());if(e!=cudaSuccess)return e;
+  e=cudaFuncSetAttribute(pearl_fused<PN,SinglePass>,cudaFuncAttributePreferredSharedMemoryCarveout,100);if(e!=cudaSuccess)return e;configured=device;
  }
- pearl_fused<PN><<<dim3((p.n+255)/256,(p.m+191)/192),384,triple_bytes<PN>(),stream>>>(a,bt,context,hits,found,capacity,geometry,p);
+ pearl_fused<PN,SinglePass><<<dim3((p.n+255)/256,(p.m+191)/192),384,triple_bytes<PN>(),stream>>>(a,bt,context,hits,found,capacity,geometry,p);
  return cudaGetLastError();
 }
-template<int PN>cudaError_t fused_info(cudaFuncAttributes*attr,int*blocks){
- auto e=cudaFuncGetAttributes(attr,pearl_fused<PN>);if(e!=cudaSuccess)return e;
- e=cudaFuncSetAttribute(pearl_fused<PN>,cudaFuncAttributeMaxDynamicSharedMemorySize,triple_bytes<PN>());if(e!=cudaSuccess)return e;
- e=cudaFuncSetAttribute(pearl_fused<PN>,cudaFuncAttributePreferredSharedMemoryCarveout,100);if(e!=cudaSuccess)return e;
- return cudaOccupancyMaxActiveBlocksPerMultiprocessor(blocks,pearl_fused<PN>,384,triple_bytes<PN>());
+template<int PN,bool SinglePass=false>cudaError_t fused_info(cudaFuncAttributes*attr,int*blocks){
+ auto e=cudaFuncGetAttributes(attr,pearl_fused<PN,SinglePass>);if(e!=cudaSuccess)return e;
+ e=cudaFuncSetAttribute(pearl_fused<PN,SinglePass>,cudaFuncAttributeMaxDynamicSharedMemorySize,triple_bytes<PN>());if(e!=cudaSuccess)return e;
+ e=cudaFuncSetAttribute(pearl_fused<PN,SinglePass>,cudaFuncAttributePreferredSharedMemoryCarveout,100);if(e!=cudaSuccess)return e;
+ return cudaOccupancyMaxActiveBlocksPerMultiprocessor(blocks,pearl_fused<PN,SinglePass>,384,triple_bytes<PN>());
 }

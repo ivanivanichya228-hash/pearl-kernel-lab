@@ -55,3 +55,11 @@ build/test-compact-hits: tests/test_compact_hits.cpp include/compact_hits.hpp in
 
 build/test-request-inbox: tests/test_request_inbox.cpp include/request_inbox.hpp | build
 	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -pthread -o $@
+
+build/check-singlepass: tests/check_singlepass_fixtures.cpp include/fixture.hpp include/contract.hpp | build
+	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
+.PHONY: singlepass-cpu-check
+singlepass-cpu-check: build/check-singlepass
+	python3 tests/make_singlepass_fixtures.py
+	./build/check-singlepass
+	python3 -m unittest discover -s tests -p 'test_singlepass*.py'
