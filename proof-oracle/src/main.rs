@@ -1,6 +1,7 @@
 //! Synthetic CPU compatibility oracle. Calls the unmodified pinned upstream verifier.
 mod pool;
 mod pipeline;
+mod mapped_raw;
 mod work;
 use anyhow::{Result,ensure,bail};
 use std::{fs,path::Path};
@@ -38,6 +39,8 @@ fn verify_outputs(out:&Path,file:&Path)->Result<()> {
 }
 fn main()->Result<()> {
  let args:Vec<String>=std::env::args().collect();
+ if args.len()==2 && args[1]=="data-producer-info" {println!("{{\"producer\":\"mapped-raw-v1\",\"GPU_executed\":false}}");return Ok(());}
+ if args.len()==5 && args[1]=="work-prepare-mapped" {return work::prepare_mapped(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==5 && args[1]=="work-prepare-raw" {return work::prepare_raw(Path::new(&args[2]),Path::new(&args[3]),Path::new(&args[4]));}
  if args.len()==4 && args[1]=="work-audit-roots" {return work::audit_roots(Path::new(&args[2]),Path::new(&args[3]));}
  if args.len()==4 && args[1]=="work-reference-noise" {return work::reference_noise(Path::new(&args[2]),Path::new(&args[3]));}

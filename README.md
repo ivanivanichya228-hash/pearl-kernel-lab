@@ -1,3 +1,5 @@
+CURRENT RELEASE: **0.3.0-mapped-input** — [MAPPED-INPUT.md](MAPPED-INPUT.md). Ready archive in dist; fresh raw operands generated directly in shared tmpfs. CPU preparation0.487374→0.354845s (−27.19%,4threads), original verifier preserved. GPU throughput/real-pool acceptance of this release untested. Only this task is active; all tasks below are historical and must not be rerun.
+
 CURRENT: [TRIPLE-STAGE-KERNEL.md](TRIPLE-STAGE-KERNEL.md), revision0.20.0. Separate192x256/384 kernel,three swizzled64-wide stages for proof16;original scalar384 control unchanged.0spills,98CPU tests passed.GPU speed untested.One bounded correctness/shortgate then conditional live test.Earlier tasks historical.
 
 CURRENT: [TWO-CTA-KERNEL.md](TWO-CTA-KERNEL.md), revision0.19.0. NEW128x128/256 computational kernel,107 registers,45056/49152 dynamic shared bytes,zero spills. Goal>=2resident CTAs; GPU speed not measured. One bounded correctness/short comparison then conditional live test. Earlier tasks below are historical.

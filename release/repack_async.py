@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Repack0.2.1 from the committed0.2.0 archive. No CUDA/compiler/network/root."""
+"""Repack0.3.0 from the committed0.2.0 archive. No CUDA/compiler/network/root."""
 import argparse,hashlib,json,os,subprocess,sys,tarfile,tempfile
 from pathlib import Path,PurePosixPath
 ROOT=Path(__file__).resolve().parents[1]
 BASE_SHA='36c522d335e3330987d48b394ce616b85544e350bb02b99b90fc043bd2fe952a'
 def main():
- p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--producer',type=Path,required=True);a=p.parse_args()
  if os.geteuid()==0:raise ValueError('Run as the ordinary user, not root')
  out=a.out.expanduser().absolute()
  if out.exists():raise ValueError('Output must be a NEW directory')
@@ -29,8 +29,8 @@ def main():
    if rel.is_absolute() or '..' in rel.parts:raise ValueError('Unsafe manifest')
    path=base.joinpath(*rel.parts)
    if not path.is_file() or path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError('Base manifest mismatch')
-  subprocess.run([sys.executable,str(ROOT/'release/build_test_release.py'),'--out',str(out),'--engine',str(base/'bin/pearl-engine'),'--oracle',str(base/'bin/pearl-protocol-oracle')],check=True)
-  new=out/'pearl-test-0.2.3-linux-x86_64'
+  subprocess.run([sys.executable,str(ROOT/'release/build_test_release.py'),'--out',str(out),'--engine',str(base/'bin/pearl-engine'),'--oracle',str(base/'bin/pearl-protocol-oracle'),'--producer',str(a.producer.resolve())],check=True)
+  new=out/'pearl-test-0.3.0-linux-x86_64'
   for name in ('bin/pearl-engine','bin/pearl-protocol-oracle'):
    if hashlib.sha256((new/name).read_bytes()).digest()!=hashlib.sha256((base/name).read_bytes()).digest():raise ValueError('Executable unexpectedly changed')
  print('Repacked using identical binaries; no GPU computation or pool connection')

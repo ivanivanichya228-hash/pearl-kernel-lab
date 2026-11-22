@@ -1,0 +1,36 @@
+{
+  "cases": [
+    {
+      "rank": 128,
+      "k": 2048,
+      "cols": 16,
+      "proofs": 4,
+      "all_header_bytes_audited": 188
+    },
+    {
+      "rank": 128,
+      "k": 2048,
+      "cols": 8,
+      "proofs": 9,
+      "all_header_bytes_audited": 188
+    },
+    {
+      "rank": 256,
+      "k": 4096,
+      "cols": 16,
+      "proofs": 4,
+      "all_header_bytes_audited": 188
+    },
+    {
+      "rank": 256,
+      "k": 4096,
+      "cols": 8,
+      "proofs": 9,
+      "all_header_bytes_audited": 188
+    }
+  ],
+  "total_official_proofs": 26,
+  "freshness_passed": true,
+  "GPU_executed": false,
+  "real_pool_share": false
+}

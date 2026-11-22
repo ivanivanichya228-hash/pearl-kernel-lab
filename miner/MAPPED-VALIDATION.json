@@ -1,0 +1,14 @@
+{
+  "Rust_tests_passed": 5,
+  "Python_tests_passed": 128,
+  "independent_official_proofs": 26,
+  "mock_pool_unique_proofs": 8,
+  "mock_accepted": 6,
+  "mock_intentional_rejected": 2,
+  "package_verify_offline_passed": true,
+  "real_pool_accepted": null,
+  "GPU_executed": false,
+  "miner_paused": false,
+  "production_deployed": false,
+  "CPU_preparation_time_reduction_fraction": 0.2719247018556925
+}

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 ROOT=Path(__file__).resolve().parent
 # Installed as package/pearl-test; imported from release/ in source tests.
 if ROOT.name=='release':ROOT=ROOT.parent
-VERSION='0.2.3-nonblocking-guards'
+VERSION='0.3.0-mapped-input'
 GPU='GPU-14cc341d-41f4-a977-1a1d-12785f4079da'
 
 def verify_bundle(root=ROOT):
@@ -25,6 +25,9 @@ def loader_check(root=ROOT):
  if '--triple-stage' not in engine.stdout or '--fused-stage' not in engine.stdout:raise ValueError('Вычислительный бинарник не поддерживает triple384')
  oracle=subprocess.run([str(root/'bin/pearl-protocol-oracle')],capture_output=True,text=True,timeout=5)
  if oracle.returncode!=1 or 'usage:' not in oracle.stderr.lower():raise ValueError('Проверяющий бинарник не загрузился')
+
+ producer=subprocess.run([str(root/'bin/pearl-data-producer'),'data-producer-info'],capture_output=True,text=True,check=True,timeout=5)
+ if json.loads(producer.stdout)!={'producer':'mapped-raw-v1','GPU_executed':False}:raise ValueError('Неверный производитель данных')
 
 def clean_config(data,profile):
  host=data.get('host');port=data.get('port')
@@ -117,7 +120,7 @@ async def run_pilot(args,config):
   line=format_status(event,row)
   if line:print(line,flush=True)
  miner.emit=emit
- options=SimpleNamespace(config=runtime,pipeline=True,gpu_noise=True,kernel_threads=384,triple_stage=True,fused_stage=True,two_cta=False,matrix_loads=False,transfer_overlap=False,oracle=ROOT/'bin/pearl-protocol-oracle',engine=ROOT/'bin/pearl-engine',mock_cpu=False,allow_live=True,enable_submit=True,gpu=GPU,expected_power_limit_w=Decimal(310),paused_pid=pid,paused_start_ticks=ticks,sanitizer=False,duration=args.duration,extended_test=True,measure_stability=True,stop_after_accepted=0,max_batches=0,ram_dir=args.ram_dir,workdir=work,evidence=evidence)
+ options=SimpleNamespace(config=runtime,pipeline=True,gpu_noise=True,kernel_threads=384,triple_stage=True,fused_stage=True,two_cta=False,matrix_loads=False,transfer_overlap=False,oracle=ROOT/'bin/pearl-protocol-oracle',producer=ROOT/'bin/pearl-data-producer',engine=ROOT/'bin/pearl-engine',mock_cpu=False,allow_live=True,enable_submit=True,gpu=GPU,expected_power_limit_w=Decimal(310),paused_pid=pid,paused_start_ticks=ticks,sanitizer=False,duration=args.duration,extended_test=True,measure_stability=True,stop_after_accepted=0,max_batches=0,ram_dir=args.ram_dir,workdir=work,evidence=evidence)
  async def monitor():
   while True:
    # Remaining duration is enforced by the miner; retain a20s recovery margin.

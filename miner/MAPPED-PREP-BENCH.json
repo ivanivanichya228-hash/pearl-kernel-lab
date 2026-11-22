@@ -1,0 +1,255 @@
+{
+  "scope": "cloud CPU preparation only; not GPU hashrate",
+  "order": [
+    "original",
+    "mapped",
+    "original",
+    "mapped",
+    "mapped",
+    "original"
+  ],
+  "rows": [
+    {
+      "order": 0,
+      "warmup_excluded": true,
+      "kind": "original",
+      "wall_seconds": 1.0199337949998153,
+      "phases": [
+        {
+          "elapsed_seconds": 0.686354907,
+          "phase": "prepare_timing",
+          "stage": "raw_random_matrices"
+        },
+        {
+          "elapsed_seconds": 0.106191987,
+          "phase": "prepare_timing",
+          "stage": "commitments"
+        },
+        {
+          "elapsed_seconds": 0.197703993,
+          "phase": "prepare_timing",
+          "stage": "raw_files"
+        },
+        {
+          "elapsed_seconds": 2.1e-07,
+          "phase": "prepare_timing",
+          "stage": "raw_manifest_write"
+        },
+        {
+          "elapsed_seconds": 6.41e-07,
+          "phase": "prepare_timing",
+          "stage": "file_close"
+        },
+        {
+          "elapsed_seconds": 0.990641216,
+          "phase": "prepare_timing",
+          "stage": "total"
+        }
+      ],
+      "raw_bytes": 1073741824,
+      "batch_id": "addde4eb2fdd2f2258c68c312093d1a554ea673c4ec5695d511a62f06cb9ee4f"
+    },
+    {
+      "order": 1,
+      "warmup_excluded": true,
+      "kind": "mapped",
+      "wall_seconds": 0.370577078000224,
+      "phases": [
+        {
+          "elapsed_seconds": 3.8638e-05,
+          "phase": "prepare_timing",
+          "stage": "mapped_allocate"
+        },
+        {
+          "elapsed_seconds": 0.234866085,
+          "phase": "prepare_timing",
+          "stage": "mapped_random_fill"
+        },
+        {
+          "elapsed_seconds": 0.119824893,
+          "phase": "prepare_timing",
+          "stage": "commitments"
+        },
+        {
+          "elapsed_seconds": 0.013155237,
+          "phase": "prepare_timing",
+          "stage": "mapped_manifest"
+        },
+        {
+          "elapsed_seconds": 0.368024365,
+          "phase": "prepare_timing",
+          "stage": "total"
+        }
+      ],
+      "raw_bytes": 1073741824,
+      "batch_id": "11bb0dbe2884efdb22a0ae5cd5dd1601844e4df5911cf82ecf153b393179d7d0"
+    },
+    {
+      "order": 2,
+      "warmup_excluded": false,
+      "kind": "original",
+      "wall_seconds": 0.49715116799961834,
+      "phases": [
+        {
+          "elapsed_seconds": 0.194123221,
+          "phase": "prepare_timing",
+          "stage": "raw_random_matrices"
+        },
+        {
+          "elapsed_seconds": 0.098156659,
+          "phase": "prepare_timing",
+          "stage": "commitments"
+        },
+        {
+          "elapsed_seconds": 0.176793319,
+          "phase": "prepare_timing",
+          "stage": "raw_files"
+        },
+        {
+          "elapsed_seconds": 3.6e-07,
+          "phase": "prepare_timing",
+          "stage": "raw_manifest_write"
+        },
+        {
+          "elapsed_seconds": 8.71e-07,
+          "phase": "prepare_timing",
+          "stage": "file_close"
+        },
+        {
+          "elapsed_seconds": 0.469363956,
+          "phase": "prepare_timing",
+          "stage": "total"
+        }
+      ],
+      "raw_bytes": 1073741824,
+      "batch_id": "5b1fc3ccea461d95f88896cc8450f2ae3be1be306e7bf43ae80b3c270148fc60",
+      "independent_full_root_audit": true
+    },
+    {
+      "order": 3,
+      "warmup_excluded": false,
+      "kind": "mapped",
+      "wall_seconds": 0.3591964949996509,
+      "phases": [
+        {
+          "elapsed_seconds": 3.5574e-05,
+          "phase": "prepare_timing",
+          "stage": "mapped_allocate"
+        },
+        {
+          "elapsed_seconds": 0.235807063,
+          "phase": "prepare_timing",
+          "stage": "mapped_random_fill"
+        },
+        {
+          "elapsed_seconds": 0.102300117,
+          "phase": "prepare_timing",
+          "stage": "commitments"
+        },
+        {
+          "elapsed_seconds": 0.014437168,
+          "phase": "prepare_timing",
+          "stage": "mapped_manifest"
+        },
+        {
+          "elapsed_seconds": 0.352818592,
+          "phase": "prepare_timing",
+          "stage": "total"
+        }
+      ],
+      "raw_bytes": 1073741824,
+      "batch_id": "8ebc7aef4c3e26203c422b4c17ba85028deb4c2daad1c443f7519258c9591cb1",
+      "independent_full_root_audit": true
+    },
+    {
+      "order": 4,
+      "warmup_excluded": false,
+      "kind": "mapped",
+      "wall_seconds": 0.35049395099986214,
+      "phases": [
+        {
+          "elapsed_seconds": 3.8037e-05,
+          "phase": "prepare_timing",
+          "stage": "mapped_allocate"
+        },
+        {
+          "elapsed_seconds": 0.235431327,
+          "phase": "prepare_timing",
+          "stage": "mapped_random_fill"
+        },
+        {
+          "elapsed_seconds": 0.099024314,
+          "phase": "prepare_timing",
+          "stage": "commitments"
+        },
+        {
+          "elapsed_seconds": 0.013367018,
+          "phase": "prepare_timing",
+          "stage": "mapped_manifest"
+        },
+        {
+          "elapsed_seconds": 0.348014147,
+          "phase": "prepare_timing",
+          "stage": "total"
+        }
+      ],
+      "raw_bytes": 1073741824,
+      "batch_id": "8c3622c6556e49fabde768dc0ee4869a7c1bb228cc28276cc2271c789fbf8e7a",
+      "independent_full_root_audit": true
+    },
+    {
+      "order": 5,
+      "warmup_excluded": false,
+      "kind": "original",
+      "wall_seconds": 0.4775975259999541,
+      "phases": [
+        {
+          "elapsed_seconds": 0.18705088,
+          "phase": "prepare_timing",
+          "stage": "raw_random_matrices"
+        },
+        {
+          "elapsed_seconds": 0.095652204,
+          "phase": "prepare_timing",
+          "stage": "commitments"
+        },
+        {
+          "elapsed_seconds": 0.16716489,
+          "phase": "prepare_timing",
+          "stage": "raw_files"
+        },
+        {
+          "elapsed_seconds": 1.7e-07,
+          "phase": "prepare_timing",
+          "stage": "raw_manifest_write"
+        },
+        {
+          "elapsed_seconds": 5.81e-07,
+          "phase": "prepare_timing",
+          "stage": "file_close"
+        },
+        {
+          "elapsed_seconds": 0.450087705,
+          "phase": "prepare_timing",
+          "stage": "total"
+        }
+      ],
+      "raw_bytes": 1073741824,
+      "batch_id": "49dcfd83d254313ddbd60a1cf2a6336e43b9c95271dc63fa39da4261d4d16d07",
+      "independent_full_root_audit": true
+    }
+  ],
+  "mean_wall_seconds": {
+    "original": 0.4873743469997862,
+    "mapped": 0.3548452229997565
+  },
+  "ratio_original_over_mapped": 1.3734843120605307,
+  "reduction_fraction": 0.2719247018556925,
+  "rayon_threads": 4,
+  "system": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "oracle_sha256": "2b009ef7afb1a2fce1be5f93da2a10e3f80019d4cab89edbf2eb3f0a354049bb",
+  "producer_sha256": "44b9ae789102c09d1483e40127eb8456c21b41ce3e3a80eaf9dfb86e7462e160",
+  "GPU_executed": false,
+  "external_network_used": false,
+  "temporary_RAM_cleaned": true
+}

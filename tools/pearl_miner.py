@@ -131,7 +131,9 @@ async def child(argv,timeout,guard=None,log_path=None):
   record('work_stage_end',outcome=outcome,elapsed_seconds=time.monotonic()-started,returncode=proc.returncode if proc else None)
 
 class Backend:
- def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None,persistent=False,engine_args=(),gpu_noise=False,transfer_overlap=False):
+ def __init__(self,oracle,engine,profile_path,cpu=False,guard=None,timeout=45,evidence=None,persistent=False,engine_args=(),gpu_noise=False,transfer_overlap=False,producer=None):
+  if producer is not None and not gpu_noise:raise ValueError('Mapped producer requires raw GPU-noise inputs')
+  self.producer=producer
   self.oracle=oracle;self.engine=engine;self.profile_path=profile_path;self.cpu=cpu;self.guard=guard;self.timeout=timeout;self.evidence=evidence;self.profile=Profile.parse(json.loads(profile_path.read_text()));self.metrics=Performance(self.profile);self.service=None;self.gpu_noise=gpu_noise;self.transfer_overlap=transfer_overlap
   if persistent:
    from persistent_engine import PersistentEngine
@@ -150,7 +152,10 @@ class Backend:
   if evidence:
    evidence.mkdir(mode=0o700);(evidence/'context.json').write_text(json.dumps({'job_fingerprint':Job.parse(raw).fingerprint()}))
   jobfile=root/'notify.json';jobfile.write_text(json.dumps(raw));work=root/'work';hits=root/'hits.json';proofs=root/'proofs'
-  await self.stage('prepare',[self.oracle,'work-prepare-raw' if self.gpu_noise else 'work-prepare',jobfile,self.profile_path,work],evidence)
+  await self.stage('prepare',[self.producer or self.oracle,'work-prepare-mapped' if self.producer else 'work-prepare-raw' if self.gpu_noise else 'work-prepare',jobfile,self.profile_path,work],evidence)
+  if self.producer:
+   metadata=json.loads((work/'work.json').read_text())
+   if metadata.get('producer')!='mapped-raw-v1' or metadata.get('input_mode')!='raw-for-GPU-noise' or metadata.get('separate_raw_copy_bytes')!=0:raise ChildFailure('Mapped producer output mode differs')
   return {'raw':raw,'root':root,'work':work,'hits':hits,'proofs':proofs,'evidence':evidence}
  async def enqueue(self,prepared):
   if self.transfer_overlap:prepared['ticket']=await self.service.submit(prepared['work']/'work.bin',prepared['hits'])
@@ -326,7 +331,7 @@ async def main_async(args):
   from ram_workspace import RamWorkspace
   ram=RamWorkspace(profile,args.ram_dir,extra_resident_bytes=2*(profile.m+profile.n)*profile.k if args.transfer_overlap else 0)
   (args.evidence/'ram-workspace.json').write_text(json.dumps(ram.describe()))
- backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence,persistent=args.pipeline,engine_args=['--paused-pid',args.paused_pid,'--paused-start-ticks',args.paused_start_ticks,'--candidate',args.kernel_threads,*(['--matrix-loads'] if args.matrix_loads else []),*(['--two-cta'] if args.two_cta else []),*(['--triple-stage'] if args.triple_stage else []),*(['--fused-stage'] if args.fused_stage else [])] if args.pipeline and not args.mock_cpu else [],gpu_noise=args.gpu_noise,transfer_overlap=args.transfer_overlap)
+ backend=Backend(args.oracle.resolve(),args.engine.resolve(),profile_path,args.mock_cpu,guard,evidence=args.evidence,persistent=args.pipeline,engine_args=['--paused-pid',args.paused_pid,'--paused-start-ticks',args.paused_start_ticks,'--candidate',args.kernel_threads,*(['--matrix-loads'] if args.matrix_loads else []),*(['--two-cta'] if args.two_cta else []),*(['--triple-stage'] if args.triple_stage else []),*(['--fused-stage'] if args.fused_stage else [])] if args.pipeline and not args.mock_cpu else [],gpu_noise=args.gpu_noise,transfer_overlap=args.transfer_overlap,producer=getattr(args,'producer',None))
  counts=Counts();finished=False
  try:
   await run(host,port,config,profile,backend,ram.path if ram else args.workdir,duration=args.duration,max_batches=args.max_batches,enable_submit=args.enable_submit,reconnects=0,stop_on_reject=not args.mock_cpu,stop_after_accepted=args.stop_after_accepted,counts=counts,evidence=args.evidence,pipeline=args.pipeline);finished=True
@@ -339,7 +344,7 @@ async def main_async(args):
   (args.evidence/'performance.json').write_text(json.dumps(performance,indent=2))
   emit('final',scope='mock' if args.mock_cpu else 'live-pool',outcome='finished' if finished else 'interrupted',**counts.public(),performance=performance)
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--pipeline',action='store_true');p.add_argument('--gpu-noise',action='store_true');p.add_argument('--transfer-overlap',action='store_true');p.add_argument('--triple-stage',action='store_true');p.add_argument('--fused-stage',action='store_true');p.add_argument('--two-cta',action='store_true');p.add_argument('--matrix-loads',action='store_true');p.add_argument('--kernel-threads',type=int,choices=[256,384],default=256);p.add_argument('--ram-dir',type=Path,default=Path('/dev/shm'));p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--measure-stability',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,required=True);p.add_argument('--pipeline',action='store_true');p.add_argument('--gpu-noise',action='store_true');p.add_argument('--transfer-overlap',action='store_true');p.add_argument('--triple-stage',action='store_true');p.add_argument('--fused-stage',action='store_true');p.add_argument('--two-cta',action='store_true');p.add_argument('--matrix-loads',action='store_true');p.add_argument('--kernel-threads',type=int,choices=[256,384],default=256);p.add_argument('--ram-dir',type=Path,default=Path('/dev/shm'));p.add_argument('--producer',type=Path);p.add_argument('--oracle',type=Path,default=ROOT/'build/pearl-protocol-oracle');p.add_argument('--engine',type=Path,default=ROOT/'build/pearl-bench');p.add_argument('--workdir',type=Path,default=ROOT/'build/private-work');p.add_argument('--evidence',type=Path,default=ROOT/'build/private-evidence');p.add_argument('--duration',type=float,default=40);p.add_argument('--max-batches',type=int,default=0);p.add_argument('--extended-test',action='store_true');p.add_argument('--measure-stability',action='store_true');p.add_argument('--stop-after-accepted',type=int,choices=[0,1],default=0);p.add_argument('--allow-live',action='store_true');p.add_argument('--enable-submit',action='store_true');p.add_argument('--mock-cpu',action='store_true');p.add_argument('--gpu');p.add_argument('--expected-power-limit-w',type=Decimal);p.add_argument('--paused-pid',type=int);p.add_argument('--paused-start-ticks',type=int);p.add_argument('--sanitizer',action='store_true');args=p.parse_args()
  try:asyncio.run(main_async(args))
  except KeyboardInterrupt:raise SystemExit(130)
  except Exception as e:emit('failed',category=type(e).__name__);raise SystemExit(1)

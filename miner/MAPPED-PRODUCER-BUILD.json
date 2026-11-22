@@ -1,0 +1,19 @@
+{
+  "compiler": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+  "direct_dependency_rlib_sha256": {
+    "libzk_pow-22708380f83a0de6.rlib": "ae6c40fd3320a4395d975ad75e3237aac48a4d36d7e91685f367030add2cfb54",
+    "libpearl_blake3-ac63eb3eaa3a5450.rlib": "ae0abafe4caa897f1b2548832591ddaebeb1ebcfe1a48c2318fee256049deb71",
+    "librand-17b307039858d2ad.rlib": "38a48c0ebbba584a5d82db8268cd3f2d30acec47e0baf613870d7d8370abaddc",
+    "libprimitive_types-96665a351ddeca11.rlib": "a6e50dc7e4e7219d9dd4f44b1bb78c2b0ed9d986b93a65dc187d086e111042e1",
+    "libanyhow-c1e387e759ddf845.rlib": "9d824b50e9450a7022c4f9c029147cbc54f25f25936176f53f1ef04efd7af6c5",
+    "libbincode-56d906212465e384.rlib": "c87244368c66014d16edc3196d922ef8e9fdecbcf0b5a307591132b62de69fb0",
+    "librayon-02f9ce23613aa2d0.rlib": "620b28887e592dd769927ee135c4536db5d8ebb00d0752323b01ec34f364af80",
+    "libserde_json-44ad4adabbd78393.rlib": "a53e8d64f3ab02774b0b8852255c7175995f5b93279e0f9331c512f82c811114",
+    "libsha2-57da566749e67d26.rlib": "18313e639df795b6c306f2816164dc4681ea0742e7269de1d15075e386b922fd"
+  },
+  "producer_sha256": "44b9ae789102c09d1483e40127eb8456c21b41ce3e3a80eaf9dfb86e7462e160",
+  "test_binary": false,
+  "GPU_executed": false,
+  "external_network_used": false,
+  "upstream_commit": "38dd764ab0aec528e81fc467665c6762ef6739e9"
+}

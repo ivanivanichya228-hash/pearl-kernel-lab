@@ -13,12 +13,14 @@ use super::{pool,pipeline};
 fn random_matrix(len:usize,rng:&mut impl RngCore)->Vec<u8>{let mut data=vec![0u8;len];rng.fill_bytes(&mut data);for x in &mut data{*x=(((*x&127) as i16)-64) as i8 as u8;}data}
 // Each bounded chunk gets its own fresh OS-seeded CSPRNG; streams are never
 // shared or derived from a fixed job seed. The target/proof distribution is unchanged.
-fn parallel_random_matrix(len:usize)->Vec<u8>{
- let mut data=vec![0u8;len];
+fn fill_random_matrix(data:&mut[u8]){
  data.par_chunks_mut(4*1024*1024).for_each(|chunk|{
   let mut rng=StdRng::from_os_rng();rng.fill_bytes(chunk);
   for x in chunk{*x=(((*x&127) as i16)-64) as i8 as u8;}
- });data
+ });
+}
+fn parallel_random_matrix(len:usize)->Vec<u8>{
+ let mut data=vec![0u8;len];fill_random_matrix(&mut data);data
 }
 fn noisy_chunk(raw:&[u8],first:usize,k:usize,rank:usize,seed:&[u8;32],key:&[u8;32],perm:&[[u32;2]])->Result<Vec<u8>>{
  let mut data=vec![0u8;raw.len()];
@@ -60,6 +62,32 @@ fn prepare_mode(job_path:&Path,profile_path:&Path,out:&Path,gpu_noise:bool)->Res
  file.flush()?;drop(file);timed("file_close",started);timed("total",total);
  fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true,"commitment_backend":"official-root-only","random_backend":"parallel-OS-seeded-CSPRNG","rayon_threads":rayon::current_num_threads(),"input_mode":if gpu_noise{"raw-for-GPU-noise"}else{"CPU-noised"}}))?)?;
  println!("Fresh real-target work prepared (no CPU GEMM / no network)");Ok(())
+}
+// Alternative producer only: write fresh randomness directly into shared raw files.
+// Proof construction/evaluation still use the independently pinned original oracle.
+pub fn prepare_mapped(job_path:&Path,profile_path:&Path,out:&Path)->Result<()>{
+ use super::mapped_raw::MappedRaw;
+ ensure!(!out.exists(),"new work directory required");let job=pool::load(job_path)?;let profile=pool::load(profile_path)?;let cfg=pool::config(&profile)?;
+ let (m,n,k)=(pool::uint(&profile,"m")?,pool::uint(&profile,"n")?,pool::uint(&profile,"k")?);
+ ensure!(m>0&&n>0&&m<=131072&&n<=131072&&k<=8192&&(m+n)*k<=(1usize<<31),"work memory bounds");
+ let (_,_,target,fp)=pool::context(&job)?;let bound=penalized_target_bound(target,&cfg).ok_or_else(||anyhow::anyhow!("invalid target scaling"))?;
+ let total=Instant::now();let started=Instant::now();fs::create_dir(out)?;
+ let mut a=MappedRaw::create(&out.join("raw-a.bin"),m*k)?;
+ let mut bt=MappedRaw::create(&out.join("raw-bt.bin"),n*k)?;
+ timed("mapped_allocate",started);let started=Instant::now();
+ {let sa=a.bytes_mut();let sb=bt.bytes_mut();rayon::join(||fill_random_matrix(sa),||fill_random_matrix(sb));}
+ timed("mapped_random_fill",started);let started=Instant::now();
+ let public=pipeline::roots(&job,&profile,a.bytes(),bt.bytes())?;let id=pipeline::batch_id_from_roots(&job,public.hash_a,public.hash_b)?;let seeds=public.commitment_hash(public.job_key());
+ timed("commitments",started);let started=Instant::now();
+ fs::write(out.join("job.json"),serde_json::to_vec(&job)?)?;fs::write(out.join("profile.json"),serde_json::to_vec(&profile)?)?;
+ let mut file=fs::File::create(out.join("work.bin"))?;file.write_all(b"PRLRAWN1")?;
+ for x in [m,n,k,cfg.rank as usize,cfg.cols_pattern.size() as usize]{file.write_all(&(x as u32).to_le_bytes())?;}
+ file.write_all(&pool::unhex(&fp)?)?;file.write_all(&pool::unhex(&id)?)?;file.write_all(&seeds.1)?;file.write_all(&seeds.0)?;
+ let mut bound_bytes=[0u8;32];bound.to_little_endian(&mut bound_bytes);file.write_all(&bound_bytes)?;file.flush()?;drop(file);
+ // MAP_SHARED pages stay in the files after unmap/process exit; no second raw copy.
+ drop(a);drop(bt);timed("mapped_manifest",started);timed("total",total);
+ fs::write(out.join("work.json"),serde_json::to_vec(&json!({"job_fingerprint":fp,"batch_id":id,"groups":(m/16)*(n/cfg.cols_pattern.size() as usize),"target_modified":false,"fresh_OS_randomness":true,"commitment_backend":"official-root-only","random_backend":"parallel-OS-seeded-CSPRNG","rayon_threads":rayon::current_num_threads(),"input_mode":"raw-for-GPU-noise","producer":"mapped-raw-v1","raw_array_bytes":(m+n)*k,"separate_raw_copy_bytes":0}))?)?;
+ println!("Fresh mapped real-target work prepared (no GPU / no network)");Ok(())
 }
 // Read-only audit uses the ORIGINAL full official trees, not the fast-root path.
 pub fn audit_roots(batch:&Path,out:&Path)->Result<()>{
