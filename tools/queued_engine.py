@@ -48,7 +48,7 @@ class QueuedEngine(PersistentEngine):
    if len(self.pending)>=2:raise RuntimeError('Two-packet submission bound exceeded')
    paths=[str(input_path.resolve()),str(output_path.resolve())]
    if any(any(ord(c)<32 or ord(c)==127 for c in p) for p in paths):raise ValueError('Control characters in queued path')
-   await check_guard(self.guard)
+   await check_guard(self.guard,force=True)
    self.seq+=1;future=asyncio.get_running_loop().create_future()
    # Retrieve on abandoned-ticket shutdown too; awaiting still receives the original error.
    future.add_done_callback(lambda f: f.exception() if not f.cancelled() else None)

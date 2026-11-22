@@ -1,26 +1,19 @@
 {
-  "version": "0.2.1-fused-async",
-  "unit_tests_before_environment_loss": {
-    "passed": 120,
+  "version": "0.2.2-guard-budget",
+  "unit_tests": {
+    "passed": 126,
     "failed": 0
   },
   "loopback_official_proofs": 8,
   "loopback_only": true,
+  "full_guard_body_AST_unchanged": true,
+  "fast_identity_AST_matches": true,
+  "periodic_observation_max_age_seconds": 0.5,
+  "fresh_full_before_every_GPU_request": true,
+  "archive_sha256": "9076894724e707d0a07fd5ab5f371c72441d6849de1524b2c57f87e7b87043a3",
+  "archive_bytes": 3230952,
   "engine_and_oracle_byte_identical_to_020": true,
-  "gpu_guard_function_AST_unchanged": true,
-  "package_created_before_environment_loss": true,
-  "generated_archive_sha256_before_loss": "c7a74d3936e2457ecd9fc320dd99f67fa96bec6d3b2004120093cf8e72514e37",
-  "archive_published": true,
-  "repack_script_added_after_environment_loss": true,
-  "repack_script_execution_pending": false,
   "package_GPU_tested": false,
   "SRBMiner_speedup_proven": false,
-  "mining_interrupted_for_packaging": false,
-  "unit_tests": {
-    "passed": 120,
-    "failed": 0
-  },
-  "archive_sha256": "eaddaf639c7afb1a6cd89c48bff01a88342079db6068228adb19af827fb6828a",
-  "archive_bytes": 3230596,
-  "repack_script_execution_passed": true
+  "mining_interrupted_for_packaging": false
 }

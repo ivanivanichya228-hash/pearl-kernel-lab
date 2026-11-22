@@ -30,7 +30,7 @@ def main():
    path=base.joinpath(*rel.parts)
    if not path.is_file() or path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError('Base manifest mismatch')
   subprocess.run([sys.executable,str(ROOT/'release/build_test_release.py'),'--out',str(out),'--engine',str(base/'bin/pearl-engine'),'--oracle',str(base/'bin/pearl-protocol-oracle')],check=True)
-  new=out/'pearl-test-0.2.1-linux-x86_64'
+  new=out/'pearl-test-0.2.2-linux-x86_64'
   for name in ('bin/pearl-engine','bin/pearl-protocol-oracle'):
    if hashlib.sha256((new/name).read_bytes()).digest()!=hashlib.sha256((base/name).read_bytes()).digest():raise ValueError('Executable unexpectedly changed')
  print('Repacked using identical binaries; no GPU computation or pool connection')

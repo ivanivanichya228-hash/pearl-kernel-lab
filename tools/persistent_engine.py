@@ -49,7 +49,7 @@ class PersistentEngine:
   async with self.lock:
    await self.start();paths=[str(input_path.resolve()),str(output_path.resolve())]
    if any(any(ord(c)<32 or ord(c)==127 for c in p) for p in paths):raise ValueError('Control characters in engine path')
-   await check_guard(self.guard)
+   await check_guard(self.guard,force=True)
    self.seq+=1;deadline=time.monotonic()+self.timeout;self.busy=True
    try:
     self.proc.stdin.write((str(self.seq)+'\t'+'\t'.join(paths)+'\n').encode());await self.proc.stdin.drain()

@@ -257,6 +257,19 @@ async def run(host,port,credentials,profile,backend,workdir,*,duration=45,max_ba
   await asyncio.sleep(min(2**attempt,max(0,end-time.monotonic())))
  return counts
 
+def identity_guard(pid,ticks):
+ def check():
+  if not pid or not ticks:raise ChildFailure('Independent stopped-miner identity required')
+  proc=Path('/proc')/str(pid);s=(proc/'stat').read_text().rsplit(')',1)[1].split()
+  if int(s[19])!=ticks or s[0]!='T':raise ChildFailure('Original process is not the expected stopped miner')
+  for t in (proc/'task').iterdir():
+   if (t/'stat').read_text().rsplit(')',1)[1].split()[0]!='T':raise ChildFailure('A miner thread is running')
+  for item in Path('/proc').iterdir():
+   if not item.name.isdecimal() or item.name==str(pid):continue
+   try:
+    if 'srbminer' in (item/'comm').read_text().lower():raise ChildFailure('Another SRBMiner process exists')
+   except (FileNotFoundError,ProcessLookupError):pass
+ return check
 def gpu_guard(uuid,expected,pid,ticks):
  def check():
   row=subprocess.check_output(['nvidia-smi','--id='+uuid,'--query-gpu=uuid,name,power.limit','--format=csv,noheader,nounits'],text=True,timeout=3).strip().split(',')
@@ -271,6 +284,7 @@ def gpu_guard(uuid,expected,pid,ticks):
    try:
     if 'srbminer' in (item/'comm').read_text().lower():raise ChildFailure('Another SRBMiner process exists')
    except (FileNotFoundError,ProcessLookupError):pass
+ check.fast_check=identity_guard(pid,ticks)
  return check
 def validate_runtime(duration,extended,stop_after_accepted,stability=False):
  if not isinstance(duration,(int,float)) or not 1<=duration<=600:raise ValueError('Invalid duration')
