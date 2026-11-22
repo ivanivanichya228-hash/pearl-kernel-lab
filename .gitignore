@@ -7,3 +7,7 @@ __pycache__/
 .sanitizer-cache/
 .proof-cache/
 proof-oracle/target/
+
+# Reproducible large fixed-shape CPU goldens; bundled in the ready archive.
+/tests/fixtures/case-10.bin
+/tests/fixtures/case-11.bin

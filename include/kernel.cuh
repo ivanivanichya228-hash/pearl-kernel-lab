@@ -30,4 +30,6 @@ cudaError_t launch_fused(const int8_t*,const int8_t*,Shape,KeyTarget,CompactHit*
 cudaError_t fused_resource_info(int,cudaFuncAttributes*,int*);
 cudaError_t launch_singlepass(const int8_t*,const int8_t*,Shape,KeyTarget,CompactHit*,uint32_t*,uint32_t,HitGeometry,cudaStream_t);
 cudaError_t singlepass_resource_info(int,cudaFuncAttributes*,int*);
+cudaError_t launch_fixed_shape(const int8_t*,const int8_t*,Shape,KeyTarget,CompactHit*,uint32_t*,uint32_t,HitGeometry,cudaStream_t);
+cudaError_t fixed_shape_resource_info(int,cudaFuncAttributes*,int*);
 }  // namespace pearl_lab

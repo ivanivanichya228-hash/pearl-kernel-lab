@@ -1,0 +1,30 @@
+[
+  {
+    "file": "case-10.bin",
+    "shape": [
+      192,
+      256,
+      4096,
+      256,
+      16
+    ],
+    "sha256": "8d555ca5b11fa0cca62f0f024f997048263c5af5e2e7134c1cf0a34df88c6101",
+    "independent_oracle": "NumPy int64 cumulative GEMM + original rotate/XOR; eight signed/extreme input values",
+    "interior_m": 192,
+    "edge_m": 0
+  },
+  {
+    "file": "case-11.bin",
+    "shape": [
+      208,
+      512,
+      4096,
+      256,
+      16
+    ],
+    "sha256": "94a0790ff248e20a43b8460fbbf2124fbb99a318d0572f0dd7b854f488bcf995",
+    "independent_oracle": "NumPy int64 cumulative GEMM + original rotate/XOR; eight signed/extreme input values",
+    "interior_m": 192,
+    "edge_m": 16
+  }
+]

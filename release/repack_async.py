@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repack0.4.0 using an explicitly supplied NEW CUDA engine from the committed0.2.0 archive. No CUDA/compiler/network/root."""
+"""Repack0.5.0 using an explicitly supplied NEW CUDA engine from the committed0.2.0 archive. No CUDA/compiler/network/root."""
 import argparse,hashlib,json,os,subprocess,sys,tarfile,tempfile
 from pathlib import Path,PurePosixPath
 ROOT=Path(__file__).resolve().parents[1]
@@ -30,7 +30,7 @@ def main():
    path=base.joinpath(*rel.parts)
    if not path.is_file() or path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError('Base manifest mismatch')
   subprocess.run([sys.executable,str(ROOT/'release/build_test_release.py'),'--out',str(out),'--engine',str(a.engine.resolve()),'--oracle',str(base/'bin/pearl-protocol-oracle'),'--producer',str(a.producer.resolve())],check=True)
-  new=out/'pearl-test-0.4.0-linux-x86_64'
+  new=out/'pearl-test-0.5.0-linux-x86_64'
   for name in ('bin/pearl-protocol-oracle',):
    if hashlib.sha256((new/name).read_bytes()).digest()!=hashlib.sha256((base/name).read_bytes()).digest():raise ValueError('Executable unexpectedly changed')
  print('Repacked using supplied CUDA engine and original oracle; no GPU computation or pool connection')

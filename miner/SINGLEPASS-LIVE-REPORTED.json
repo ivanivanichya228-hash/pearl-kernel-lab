@@ -1,0 +1,20 @@
+{
+  "source": "user-provided test report; raw archive not supplied",
+  "commit": "210e993705e2957a15550390e726446792098d04",
+  "correctness_checks": 10,
+  "ABBA_ms": [
+    1.24218,
+    1.22003,
+    1.2201,
+    1.2423
+  ],
+  "reported_speed_ratio": 1.01818,
+  "gate_passed": false,
+  "live_run_executed": false,
+  "pause_seconds": 12.3,
+  "SRBMiner_restored_same_PID": true,
+  "SRBMiner_reported_TH_s": 332.91,
+  "power_limit_w": 310,
+  "settings_preserved_reported": true,
+  "decision": "Do not repeat 0.4.0 or lower 3% threshold."
+}

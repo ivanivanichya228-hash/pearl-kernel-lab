@@ -7,7 +7,7 @@ NVFLAGS = -std=c++17 -O3 -lineinfo -Iinclude -L$(CUDA_HOME)/lib $(CUDA_ARCH_FLAG
 all: build/pearl-bench
 build:
 	mkdir -p build
-build/pearl-bench: src/kernel.cu src/bench.cu src/filter.cu src/pipeline.cu src/noise.cu include/request_inbox.hpp include/transfer_pool.cuh include/compact_hits.hpp include/noise.cuh include/noise.hpp include/filter.cuh include/pipeline_fixture.hpp include/mining_work.hpp include/mapped_work.hpp include/worker_protocol.hpp include/paused_guard.hpp include/jackpot_hash.hpp include/hash_vectors.hpp include/kernel.cuh include/triple_stage.cuh include/fused_stage.cuh include/occupancy_stage.cuh include/contract.hpp include/fixture.hpp include/validation.hpp | build
+build/pearl-bench: src/kernel.cu src/bench.cu src/filter.cu src/pipeline.cu src/noise.cu include/request_inbox.hpp include/transfer_pool.cuh include/compact_hits.hpp include/noise.cuh include/noise.hpp include/filter.cuh include/pipeline_fixture.hpp include/mining_work.hpp include/mapped_work.hpp include/worker_protocol.hpp include/paused_guard.hpp include/jackpot_hash.hpp include/hash_vectors.hpp include/kernel.cuh include/triple_stage.cuh include/fused_stage.cuh include/fixed_shape.cuh include/fixed_shape_plan.hpp include/occupancy_stage.cuh include/contract.hpp include/fixture.hpp include/validation.hpp | build
 	$(NVCC) $(NVFLAGS) src/kernel.cu src/bench.cu src/filter.cu src/pipeline.cu src/noise.cu -Xcompiler=-pthread -ldl -o $@
 build/test-contract: tests/test_contract.cpp include/contract.hpp | build
 	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
@@ -63,3 +63,11 @@ singlepass-cpu-check: build/check-singlepass
 	python3 tests/make_singlepass_fixtures.py
 	./build/check-singlepass
 	python3 -m unittest discover -s tests -p 'test_singlepass*.py'
+
+build/check-fixed-shape: tests/check_fixed_shape.cpp include/fixed_shape_plan.hpp include/fixture.hpp include/contract.hpp | build
+	$(CXX) -std=c++17 -O3 -Wall -Wextra -Werror -Iinclude $< -o $@
+.PHONY: fixed-shape-cpu-check
+fixed-shape-cpu-check: build/check-fixed-shape
+	python3 tests/make_fixed_shape_fixtures.py
+	./build/check-fixed-shape
+	python3 -m unittest discover -s tests -p 'test_fixed_shape.py'
